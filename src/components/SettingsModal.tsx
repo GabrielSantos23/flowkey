@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  X,
   Settings,
   RefreshCw,
   DownloadCloud,
@@ -15,6 +14,13 @@ import { Switch } from "./ui/switch";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "./ui/dialog";
 import { autostartService } from "../services/autostartService";
 import { updaterService, UpdateInfo } from "../services/updaterService";
 
@@ -112,30 +118,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in select-none">
-      <div className="w-full max-w-xl rounded-2xl bg-[#10131a] border border-[#242a3a] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="sm:max-w-xl max-w-[calc(100%-2rem)] p-0 overflow-hidden bg-[#10131a] border-[#242a3a] gap-0 text-xs select-none max-h-[85vh] flex flex-col shadow-2xl rounded-2xl"
+        showCloseButton={true}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-card/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <Settings className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Preferences & Settings</h2>
-              <p className="text-[11px] text-muted-foreground">Manage accounts, autostart, and software updates</p>
-            </div>
+        <DialogHeader className="px-6 py-4 border-b border-border/40 bg-card/40 flex-row items-center gap-3 space-y-0 text-left">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Settings className="w-4 h-4" />
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+          <div className="space-y-0.5">
+            <DialogTitle className="text-sm font-bold text-foreground">
+              Preferences & Settings
+            </DialogTitle>
+            <DialogDescription className="text-[11px] text-muted-foreground">
+              Manage accounts, autostart, and software updates
+            </DialogDescription>
+          </div>
+        </DialogHeader>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
@@ -353,11 +355,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-3 border-t border-border/40 bg-card/20 flex items-center justify-between text-[11px] text-muted-foreground">
           <span>FlowKey • Spotify Companion for Windows</span>
-          <Button variant="ghost" size="xs" onClick={onClose} className="h-6 text-xs">
+          <Button variant="ghost" size="xs" onClick={onClose} className="h-6 text-xs cursor-pointer">
             Done
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
