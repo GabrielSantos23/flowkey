@@ -9,6 +9,22 @@ export interface NativeActionResult {
   message: string;
 }
 
+export interface NativeMediaMetadata {
+  title: string;
+  artist: string;
+  album: string;
+  album_art: string;
+}
+
+export async function getNativeMediaInfo(): Promise<NativeMediaMetadata> {
+  try {
+    return await invoke<NativeMediaMetadata>("get_native_media_info");
+  } catch (e) {
+    console.warn("Failed to get native media info:", e);
+    return { title: "", artist: "", album: "", album_art: "" };
+  }
+}
+
 export async function triggerNativePlayPause(): Promise<NativeActionResult> {
   const start = performance.now();
   try {

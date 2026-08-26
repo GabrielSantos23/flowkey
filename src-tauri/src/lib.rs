@@ -49,6 +49,140 @@ fn native_prev_track() -> Result<String, String> {
     Ok("VK_MEDIA_PREV_TRACK (0xB1) sent".into())
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct NativeMediaMetadata {
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub album_art: String,
+}
+
+#[cfg(target_os = "windows")]
+fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
+    use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+
+    let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
+        .map_err(|e| e.to_string())?
+        .get()
+        .map_err(|e| e.to_string())?;
+
+    let session = manager
+        .GetCurrentSession()
+        .map_err(|e| e.to_string())?;
+
+    let properties = session
+        .TryGetMediaPropertiesAsync()
+        .map_err(|e| e.to_string())?
+        .get()
+        .map_err(|e| e.to_string())?;
+
+    let title = properties.Title().map(|h| h.to_string()).unwrap_or_default();
+    let artist = properties.Artist().map(|h| h.to_string()).unwrap_or_default();
+    let album = properties.AlbumTitle().map(|h| h.to_string()).unwrap_or_default();
+
+    let mut album_art = String::new();
+    if let Ok(thumb_ref) = properties.Thumbnail() {
+        if let Ok(stream_op) = thumb_ref.OpenReadAsync() {
+            if let Ok(stream) = stream_op.get() {
+                if let Ok(size) = stream.Size() {
+                    if size > 0 && size < 4 * 1024 * 1024 {
+                        use windows::Storage::Streams::{DataReader, InputStreamOptions};
+                        if let Ok(reader) = DataReader::CreateDataReader(&stream) {
+                            let _ = reader.SetInputStreamOptions(InputStreamOptions::None);
+                            if let Ok(load_op) = reader.LoadAsync(size as u32) {
+                                if load_op.get().is_ok() {
+                                    let mut bytes = vec![0u8; size as usize];
+                                    if reader.ReadBytes(&mut bytes).is_ok() {
+                                        album_art = format!(
+                                            "data:image/png;base64,{}",
+                                            BASE64_STANDARD.encode(&bytes)
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(NativeMediaMetadata {
+        title,
+        artist,
+        album,
+        album_art,
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn get_spotify_window_title_info() -> Result<NativeMediaMetadata, String> {
+    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextW, IsWindowVisible};
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
+        if IsWindowVisible(hwnd) == 0 {
+            return 1;
+        }
+        let mut buffer = [0u16; 512];
+        let len = GetWindowTextW(hwnd, buffer.as_mut_ptr(), 512);
+        if len > 0 {
+            let text = String::from_utf16_lossy(&buffer[..len as usize]);
+            if text.contains(" - ")
+                && !text.contains("Chrome")
+                && !text.contains("Visual Studio")
+                && !text.contains("FlowKey")
+            {
+                let match_ptr = lparam as *mut Option<String>;
+                if (*match_ptr).is_none() {
+                    *match_ptr = Some(text);
+                }
+            }
+        }
+        1
+    }
+
+    let mut result_title: Option<String> = None;
+    unsafe {
+        EnumWindows(Some(enum_proc), &mut result_title as *mut _ as LPARAM);
+    }
+
+    if let Some(full) = result_title {
+        if let Some((artist, title)) = full.split_once(" - ") {
+            return Ok(NativeMediaMetadata {
+                title: title.trim().to_string(),
+                artist: artist.trim().to_string(),
+                album: String::new(),
+                album_art: String::new(),
+            });
+        }
+    }
+
+    Err("No Spotify window title found".into())
+}
+
+#[command]
+async fn get_native_media_info() -> Result<NativeMediaMetadata, String> {
+    #[cfg(target_os = "windows")]
+    {
+        // 1. Try Windows GSMTC (GlobalSystemMediaTransportControls)
+        if let Ok(meta) = get_windows_media_properties() {
+            if !meta.title.is_empty() {
+                return Ok(meta);
+            }
+        }
+
+        // 2. Fallback: Parse Spotify Desktop Window Title
+        if let Ok(meta) = get_spotify_window_title_info() {
+            if !meta.title.is_empty() {
+                return Ok(meta);
+            }
+        }
+    }
+
+    Ok(NativeMediaMetadata::default())
+}
+
 #[command]
 async fn spotify_exchange_code(
     client_id: String,
@@ -602,7 +736,8 @@ pub fn run() {
             hide_playlist_picker,
             minimize_main_window,
             toggle_maximize_main_window,
-            close_main_window
+            close_main_window,
+            get_native_media_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

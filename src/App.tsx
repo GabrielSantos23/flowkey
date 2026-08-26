@@ -5,6 +5,7 @@ import { MainSettingsView } from "./components/MainSettingsView";
 import { SettingsModal } from "./components/SettingsModal";
 import { spotifyService, openExternalLink, openSpotifyLoginInBrowser } from "./services/spotifyApi";
 import { hotkeyService, HotkeyHandlers } from "./services/hotkeyService";
+import { getNativeMediaInfo } from "./services/nativeMedia";
 
 let skipSequence = 0;
 
@@ -37,15 +38,33 @@ export function App() {
 
         try {
           await invoke("native_next_track");
-          await invoke("show_track_toast", {
-            payload: {
-              action: "next",
-              title: "Advancing Track...",
-              artist: "Spotify Playback",
-              album_art: "",
-            },
-          });
 
+          // 1. Instantly query Windows native media (GSMTC & window title)
+          setTimeout(async () => {
+            if (seq !== skipSequence) return;
+            const nativeInfo = await getNativeMediaInfo();
+            if (nativeInfo?.title) {
+              await invoke("show_track_toast", {
+                payload: {
+                  action: "next",
+                  title: nativeInfo.title,
+                  artist: nativeInfo.artist || "Spotify Playback",
+                  album_art: nativeInfo.album_art || "",
+                },
+              });
+            } else {
+              await invoke("show_track_toast", {
+                payload: {
+                  action: "next",
+                  title: "Advancing Track...",
+                  artist: "Spotify Playback",
+                  album_art: "",
+                },
+              });
+            }
+          }, 60);
+
+          // 2. In background, enrich with full Spotify artwork and library sync
           if (spotifyService.isAuthenticated()) {
             const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
             if (seq === skipSequence && newItem) {
@@ -69,15 +88,33 @@ export function App() {
 
         try {
           await invoke("native_prev_track");
-          await invoke("show_track_toast", {
-            payload: {
-              action: "prev",
-              title: "Previous Track...",
-              artist: "Spotify Playback",
-              album_art: "",
-            },
-          });
 
+          // 1. Instantly query Windows native media (GSMTC & window title)
+          setTimeout(async () => {
+            if (seq !== skipSequence) return;
+            const nativeInfo = await getNativeMediaInfo();
+            if (nativeInfo?.title) {
+              await invoke("show_track_toast", {
+                payload: {
+                  action: "prev",
+                  title: nativeInfo.title,
+                  artist: nativeInfo.artist || "Spotify Playback",
+                  album_art: nativeInfo.album_art || "",
+                },
+              });
+            } else {
+              await invoke("show_track_toast", {
+                payload: {
+                  action: "prev",
+                  title: "Previous Track...",
+                  artist: "Spotify Playback",
+                  album_art: "",
+                },
+              });
+            }
+          }, 60);
+
+          // 2. In background, enrich with full Spotify artwork and library sync
           if (spotifyService.isAuthenticated()) {
             const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
             if (seq === skipSequence && newItem) {
