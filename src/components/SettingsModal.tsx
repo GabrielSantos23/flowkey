@@ -28,7 +28,7 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   isAuthenticated: boolean;
-  onOpenConnectModal: () => void;
+  onConnect: () => void;
   onLogout: () => void;
 }
 
@@ -36,7 +36,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   isAuthenticated,
-  onOpenConnectModal,
+  onConnect,
   onLogout,
 }) => {
   // Autostart state
@@ -194,10 +194,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   ) : (
                     <Button
                       size="sm"
-                      onClick={() => {
-                        onClose();
-                        onOpenConnectModal();
-                      }}
+                      onClick={onConnect}
                       className="bg-[#1db954] hover:bg-[#1ed760] text-black font-semibold text-xs h-7 shadow-sm cursor-pointer"
                     >
                       Connect Account

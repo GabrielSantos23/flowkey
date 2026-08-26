@@ -2,16 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { MainSettingsView } from "./components/MainSettingsView";
-import { ConnectModal } from "./components/ConnectModal";
 import { SettingsModal } from "./components/SettingsModal";
-import { spotifyService, openExternalLink } from "./services/spotifyApi";
+import { spotifyService, openExternalLink, openSpotifyLoginInBrowser } from "./services/spotifyApi";
 import { hotkeyService, HotkeyHandlers } from "./services/hotkeyService";
 
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
     spotifyService.isAuthenticated()
   );
-  const [isConnectModalOpen, setIsConnectModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
   // Configure and register global OS shortcuts
@@ -197,7 +195,6 @@ export function App() {
           } catch {}
 
           if (!isOverlayOpen) {
-            // Queue command is disabled when no windows are open
             return;
           }
 
@@ -273,6 +270,14 @@ export function App() {
     refreshGlobalShortcuts();
   }, [refreshGlobalShortcuts]);
 
+  const handleConnectSpotify = async () => {
+    try {
+      await openSpotifyLoginInBrowser();
+    } catch (e) {
+      console.error("Failed to start Spotify login:", e);
+    }
+  };
+
   const handleLogout = () => {
     spotifyService.logout();
     setIsAuthenticated(false);
@@ -282,26 +287,17 @@ export function App() {
     <div className="flex flex-col h-screen w-screen bg-[#0f1115] text-[#f3f4f6] overflow-hidden select-none font-sans relative">
       <MainSettingsView
         isAuthenticated={isAuthenticated}
-        onConnect={() => setIsConnectModalOpen(true)}
+        onConnect={handleConnectSpotify}
         onLogout={handleLogout}
         onShortcutsUpdated={refreshGlobalShortcuts}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
-      />
-
-      <ConnectModal
-        isOpen={isConnectModalOpen}
-        onClose={() => setIsConnectModalOpen(false)}
-        onAuthUpdated={() => {
-          const authed = spotifyService.isAuthenticated();
-          setIsAuthenticated(authed);
-        }}
       />
 
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         isAuthenticated={isAuthenticated}
-        onOpenConnectModal={() => setIsConnectModalOpen(true)}
+        onConnect={handleConnectSpotify}
         onLogout={handleLogout}
       />
     </div>
