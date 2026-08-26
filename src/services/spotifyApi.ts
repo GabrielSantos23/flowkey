@@ -183,6 +183,16 @@ class SpotifyService {
     return false;
   }
 
+  private lastTrackId: string | null = null;
+
+  public getLastTrackId(): string | null {
+    return this.lastTrackId;
+  }
+
+  public setLastTrackId(id: string | null) {
+    this.lastTrackId = id;
+  }
+
   public getRefreshToken(): string | null {
     return this.refreshToken;
   }
@@ -454,6 +464,9 @@ class SpotifyService {
       try {
         const data = await res.json();
         if (data && data.item) {
+          if (data.item.id) {
+            this.lastTrackId = data.item.id;
+          }
           return { data, status: 200, latencyMs };
         }
       } catch {
@@ -469,6 +482,9 @@ class SpotifyService {
       if (curRes.ok && curRes.status === 200) {
         const curData = await curRes.json();
         if (curData && curData.item) {
+          if (curData.item.id) {
+            this.lastTrackId = curData.item.id;
+          }
           return {
             data: {
               is_playing: curData.is_playing ?? false,
@@ -494,6 +510,48 @@ class SpotifyService {
       status: res.status === 204 ? 204 : 200,
       latencyMs,
     };
+  }
+
+  public async fetchNewTrackAfterSkip(
+    previousTrackId?: string | null,
+    maxWaitMs = 2800
+  ): Promise<SpotifyTrack | null> {
+    const token = await this.ensureValidToken();
+    if (!token) return null;
+
+    const startTime = Date.now();
+    const delays = [200, 300, 400, 500, 650, 800];
+    let idx = 0;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      const delay = delays[Math.min(idx++, delays.length - 1)];
+      await new Promise((r) => setTimeout(r, delay));
+
+      try {
+        const res = await this.getNowPlaying();
+        const item = res?.data?.item;
+        if (item) {
+          // If we had a previousTrackId and the API still returns the old track, continue polling!
+          if (previousTrackId && item.id === previousTrackId) {
+            continue;
+          }
+          this.lastTrackId = item.id;
+          return item;
+        }
+      } catch (e) {
+        console.warn("Polling error after skip:", e);
+      }
+    }
+
+    // Fallback: return current track if available
+    try {
+      const res = await this.getNowPlaying();
+      if (res?.data?.item) {
+        this.lastTrackId = res.data.item.id;
+        return res.data.item;
+      }
+    } catch {}
+    return null;
   }
 
   // 2. Real Spotify API: Volume Adjustment

@@ -6,11 +6,20 @@ import { SettingsModal } from "./components/SettingsModal";
 import { spotifyService, openExternalLink, openSpotifyLoginInBrowser } from "./services/spotifyApi";
 import { hotkeyService, HotkeyHandlers } from "./services/hotkeyService";
 
+let skipSequence = 0;
+
 export function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
     spotifyService.isAuthenticated()
   );
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+
+  // Sync initial now playing track id for skip comparison
+  useEffect(() => {
+    if (isAuthenticated) {
+      spotifyService.getNowPlaying().catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // Configure and register global OS shortcuts
   const refreshGlobalShortcuts = useCallback(() => {
@@ -23,71 +32,65 @@ export function App() {
         }
       },
       next_track: async () => {
+        const seq = ++skipSequence;
+        const previousTrackId = spotifyService.getLastTrackId();
+
         try {
           await invoke("native_next_track");
           await invoke("show_track_toast", {
             payload: {
               action: "next",
-              title: "Next Track",
+              title: "Advancing Track...",
               artist: "Spotify Playback",
               album_art: "",
             },
           });
-          setTimeout(async () => {
-            try {
-              if (spotifyService.isAuthenticated()) {
-                const res = await spotifyService.getNowPlaying();
-                const item = res?.data?.item;
-                if (item) {
-                  await invoke("show_track_toast", {
-                    payload: {
-                      action: "next",
-                      title: item.name,
-                      artist: item.artists?.map((a: any) => a.name).join(", ") || "",
-                      album_art: item.album?.images?.[0]?.url || "",
-                    },
-                  });
-                }
-              }
-            } catch (e) {
-              console.warn("Could not fetch new track info for toast:", e);
+
+          if (spotifyService.isAuthenticated()) {
+            const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
+            if (seq === skipSequence && newItem) {
+              await invoke("show_track_toast", {
+                payload: {
+                  action: "next",
+                  title: newItem.name,
+                  artist: newItem.artists?.map((a: any) => a.name).join(", ") || "",
+                  album_art: newItem.album?.images?.[0]?.url || "",
+                },
+              });
             }
-          }, 350);
+          }
         } catch (e) {
           console.error("Hotkey Next Track error:", e);
         }
       },
       prev_track: async () => {
+        const seq = ++skipSequence;
+        const previousTrackId = spotifyService.getLastTrackId();
+
         try {
           await invoke("native_prev_track");
           await invoke("show_track_toast", {
             payload: {
               action: "prev",
-              title: "Previous Track",
+              title: "Previous Track...",
               artist: "Spotify Playback",
               album_art: "",
             },
           });
-          setTimeout(async () => {
-            try {
-              if (spotifyService.isAuthenticated()) {
-                const res = await spotifyService.getNowPlaying();
-                const item = res?.data?.item;
-                if (item) {
-                  await invoke("show_track_toast", {
-                    payload: {
-                      action: "prev",
-                      title: item.name,
-                      artist: item.artists?.map((a: any) => a.name).join(", ") || "",
-                      album_art: item.album?.images?.[0]?.url || "",
-                    },
-                  });
-                }
-              }
-            } catch (e) {
-              console.warn("Could not fetch new track info for toast:", e);
+
+          if (spotifyService.isAuthenticated()) {
+            const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
+            if (seq === skipSequence && newItem) {
+              await invoke("show_track_toast", {
+                payload: {
+                  action: "prev",
+                  title: newItem.name,
+                  artist: newItem.artists?.map((a: any) => a.name).join(", ") || "",
+                  album_art: newItem.album?.images?.[0]?.url || "",
+                },
+              });
             }
-          }, 350);
+          }
         } catch (e) {
           console.error("Hotkey Prev Track error:", e);
         }

@@ -29,15 +29,25 @@ export const OverlayToast: React.FC<OverlayToastProps> = ({
           "bg-popover/95 border-rose-500/50 text-rose-400 shadow-rose-950/30",
         type === "dislike" &&
           "bg-popover/95 border-zinc-500/50 text-zinc-400 shadow-black/40",
-        className
+        className,
       )}
     >
-      {type === "success" && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
-      {type === "error" && <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />}
-      {type === "info" && <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-      {type === "like" && <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 shrink-0" />}
-      {type === "dislike" && <HeartOff className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-      <span className="truncate max-w-[280px]">{message}</span>
+      {type === "success" && (
+        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+      )}
+      {type === "error" && (
+        <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+      )}
+      {type === "info" && (
+        <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+      )}
+      {type === "like" && (
+        <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 shrink-0" />
+      )}
+      {type === "dislike" && (
+        <HeartOff className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+      )}
+      <span className="truncate max-w-70">{message}</span>
     </div>
   );
 };

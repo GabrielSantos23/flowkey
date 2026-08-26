@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { FastForward, Rewind, Music2, Heart, HeartOff, ListPlus } from "lucide-react";
+import {
+  FastForward,
+  Rewind,
+  Music2,
+  Heart,
+  HeartOff,
+  ListPlus,
+} from "lucide-react";
 import { SpotifyIcon } from "../../assets/spotify-icon";
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -56,11 +63,13 @@ export const TrackToastWindow: React.FC = () => {
     // 2. Listen via webview window event
     try {
       const appWin = getCurrentWebviewWindow();
-      appWin.listen<TrackToastPayload>("track_toast_event", (event) => {
-        if (event.payload) handlePayload(event.payload);
-      }).then((fn) => {
-        unlistenWin = fn;
-      });
+      appWin
+        .listen<TrackToastPayload>("track_toast_event", (event) => {
+          if (event.payload) handlePayload(event.payload);
+        })
+        .then((fn) => {
+          unlistenWin = fn;
+        });
     } catch {}
 
     // 3. Fallback broadcast channel
@@ -82,7 +91,9 @@ export const TrackToastWindow: React.FC = () => {
   }, []);
 
   if (!toastData && !isVisible) {
-    return <div className="w-full h-full bg-transparent select-none pointer-events-none" />;
+    return (
+      <div className="w-full h-full bg-transparent select-none pointer-events-none" />
+    );
   }
 
   const action = toastData?.action || "next";
@@ -94,12 +105,12 @@ export const TrackToastWindow: React.FC = () => {
   const defaultTitle = isNext
     ? "Next Track"
     : isPrev
-    ? "Previous Track"
-    : isLike
-    ? "Saved to Liked Songs"
-    : isDislike
-    ? "Removed from Liked Songs"
-    : "FlowKey Notification";
+      ? "Previous Track"
+      : isLike
+        ? "Saved to Liked Songs"
+        : isDislike
+          ? "Removed from Liked Songs"
+          : "FlowKey Notification";
 
   const title = toastData?.title || defaultTitle;
   const artist = toastData?.artist || "Spotify Playback";
@@ -108,29 +119,24 @@ export const TrackToastWindow: React.FC = () => {
   const headerTag = isNext
     ? "Advancing Track"
     : isPrev
-    ? "Previous Track"
-    : isLike
-    ? "Saved to Liked Songs"
-    : isDislike
-    ? "Removed from Liked Songs"
-    : "Track Queued";
+      ? "Previous Track"
+      : isLike
+        ? "Saved to Liked Songs"
+        : isDislike
+          ? "Removed from Liked Songs"
+          : "Track Queued";
 
   return (
     <div className="w-screen h-screen flex items-center justify-center p-2 bg-transparent select-none pointer-events-none overflow-hidden font-sans">
       <div
-        className={`w-full h-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-[#0e1117]/95 border shadow-2xl backdrop-blur-2xl text-foreground transition-all duration-200 ${
-          isLike
-            ? "border-rose-500/40"
-            : isDislike
-            ? "border-zinc-500/40"
-            : "border-border/70"
+        className={`w-full h-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-card border shadow-2xl backdrop-blur-2xl text-foreground transition-all duration-200 ${
+          isLike ? "" : isDislike ? "border-zinc-500/40" : "border-border/70"
         } ${
           isVisible
             ? "opacity-100 translate-y-0 scale-100"
             : "opacity-0 translate-y-3 scale-95"
         }`}
       >
-        {/* Album Artwork / Icon */}
         <div className="relative shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-muted/40 border border-white/10 flex items-center justify-center shadow-md">
           {albumArt ? (
             <img
@@ -144,7 +150,6 @@ export const TrackToastWindow: React.FC = () => {
             </div>
           )}
 
-          {/* Action corner badge */}
           <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-background/90 rounded-tl-md flex items-center justify-center border-t border-l border-white/10">
             {isLike ? (
               <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" />
@@ -160,28 +165,28 @@ export const TrackToastWindow: React.FC = () => {
           </div>
         </div>
 
-        {/* Text Details */}
         <div className="flex-1 min-w-0 space-y-0.5">
-          {/* Header Action Tag */}
           <div
             className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider ${
               isLike
                 ? "text-rose-400"
                 : isDislike
-                ? "text-zinc-400"
-                : "text-emerald-400"
+                  ? "text-zinc-400"
+                  : "text-emerald-400"
             }`}
           >
-            <SpotifyIcon className="w-2.5 h-2.5 shrink-0" color={isLike ? "#F43F5E" : "#1ED760"} lineColor="#00000" />
+            <SpotifyIcon
+              className="w-2.5 h-2.5 shrink-0"
+              color={isLike ? "#F43F5E" : "#1ED760"}
+              lineColor="#00000"
+            />
             <span>{headerTag}</span>
           </div>
 
-          {/* Song Title */}
           <div className="text-xs font-bold text-foreground truncate leading-tight">
             {title}
           </div>
 
-          {/* Artist Name */}
           <div className="text-[11px] text-muted-foreground truncate leading-tight">
             {artist}
           </div>
