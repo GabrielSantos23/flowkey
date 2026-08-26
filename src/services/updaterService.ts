@@ -39,7 +39,7 @@ class UpdaterService {
       }
     } catch (error) {
       console.warn("Failed to check for updates:", error);
-      return { available: false };
+      throw error;
     } finally {
       this.isChecking = false;
     }

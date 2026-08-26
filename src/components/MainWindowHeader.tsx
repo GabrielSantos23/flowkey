@@ -26,12 +26,15 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
   // Check for updates on header mount & listen to update status events
   useEffect(() => {
     let isMounted = true;
-    updaterService.checkForUpdates().then((res) => {
-      if (isMounted && res.available) {
-        setHasUpdate(true);
-        setUpdateVersion(res.version || null);
-      }
-    });
+    updaterService
+      .checkForUpdates()
+      .then((res) => {
+        if (isMounted && res?.available) {
+          setHasUpdate(true);
+          setUpdateVersion(res.version || null);
+        }
+      })
+      .catch(() => {});
 
     const handleUpdateEvent = (e: any) => {
       setHasUpdate(Boolean(e.detail?.available));
