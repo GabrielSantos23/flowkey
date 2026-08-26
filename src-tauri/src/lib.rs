@@ -1,6 +1,8 @@
 use base64::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{command, AppHandle, Emitter, Manager};
 
 #[cfg(target_os = "windows")]
@@ -504,7 +506,7 @@ async fn toggle_maximize_main_window(app: AppHandle) -> Result<bool, String> {
 #[command]
 async fn close_main_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.close();
+        let _ = window.hide();
     }
     Ok(())
 }
@@ -519,6 +521,66 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+            }
+        })
+        .setup(|app| {
+            let show_item = MenuItem::with_id(app, "show", "Open FlowKey", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit FlowKey", true, None::<&str>)?;
+            let separator = PredefinedMenuItem::separator(app)?;
+            let menu = Menu::with_items(app, &[&show_item, &separator, &quit_item])?;
+
+            let mut tray_builder = TrayIconBuilder::with_id("main-tray")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .tooltip("FlowKey")
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let is_visible = window.is_visible().unwrap_or(false);
+                            if is_visible {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.unminimize();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    }
+                });
+
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            }
+
+            let _tray = tray_builder.build(app)?;
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             native_play_pause,
             native_next_track,
