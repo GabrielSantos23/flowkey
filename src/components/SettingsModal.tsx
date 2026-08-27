@@ -41,15 +41,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   // Autostart state
   const [isAutostartEnabled, setIsAutostartEnabled] = useState<boolean>(false);
-  const [isTogglingAutostart, setIsTogglingAutostart] = useState<boolean>(false);
+  const [isTogglingAutostart, setIsTogglingAutostart] =
+    useState<boolean>(false);
 
   // Updater state
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState<boolean>(false);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] =
+    useState<boolean>(false);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [updateStatusMessage, setUpdateStatusMessage] = useState<string | null>(null);
-  const [updateErrorMessage, setUpdateErrorMessage] = useState<string | null>(null);
+  const [updateStatusMessage, setUpdateStatusMessage] = useState<string | null>(
+    null,
+  );
+  const [updateErrorMessage, setUpdateErrorMessage] = useState<string | null>(
+    null,
+  );
 
   // Fetch initial system autostart state
   useEffect(() => {
@@ -106,7 +112,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       await updaterService.downloadAndInstall((downloaded, total) => {
         if (total && total > 0) {
-          setDownloadProgress(Math.min(100, Math.round((downloaded / total) * 100)));
+          setDownloadProgress(
+            Math.min(100, Math.round((downloaded / total) * 100)),
+          );
         }
       });
       setUpdateStatusMessage("Update installed! Please restart FlowKey.");
@@ -121,7 +129,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="sm:max-w-xl max-w-[calc(100%-2rem)] p-0 overflow-hidden bg-[#10131a] border-[#242a3a] gap-0 text-xs select-none max-h-[85vh] flex flex-col shadow-2xl rounded-2xl"
+        className="sm:max-w-xl max-w-[calc(100%-2rem)] p-0 overflow-hidden bg-background border-[#242a3a] gap-0 text-xs select-none max-h-[85vh] flex flex-col shadow-2xl rounded-2xl"
         showCloseButton={true}
       >
         {/* Header */}
@@ -144,7 +152,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* SECTION 1: Spotify Account Status */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5">
-              <SpotifyIcon className="w-3.5 h-3.5" color="#1ED760" lineColor="#00000" />
+              <SpotifyIcon
+                className="w-3.5 h-3.5"
+                color="#1ED760"
+                lineColor="#00000"
+              />
               <span>Spotify Connection</span>
             </h3>
 
@@ -153,11 +165,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-card border border-border/70 flex items-center justify-center">
-                      <SpotifyIcon className="w-5 h-5" color="#1ED760" lineColor="#00000" />
+                      <SpotifyIcon
+                        className="w-5 h-5"
+                        color="#1ED760"
+                        lineColor="#00000"
+                      />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground text-xs">Spotify Web API</span>
+                        <span className="font-semibold text-foreground text-xs">
+                          Spotify Web API
+                        </span>
                         <Badge
                           variant="outline"
                           className={
@@ -168,7 +186,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                              isAuthenticated ? "bg-emerald-400 shadow-[0_0_6px_#10b981]" : "bg-amber-400"
+                              isAuthenticated
+                                ? "bg-emerald-400 shadow-[0_0_6px_#10b981]"
+                                : "bg-amber-400"
                             }`}
                           />
                           {isAuthenticated ? "Connected" : "Not Connected"}
@@ -216,20 +236,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="space-y-0.5 pr-4">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground text-xs">Start with System</span>
+                    <span className="font-semibold text-foreground text-xs">
+                      Start with System
+                    </span>
                     {isAutostartEnabled && (
-                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-emerald-500/15 text-emerald-400">
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] py-0 px-1.5 bg-emerald-500/15 text-emerald-400"
+                      >
                         Enabled
                       </Badge>
                     )}
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Automatically launch FlowKey in the background when your computer boots up.
+                    Automatically launch FlowKey in the background when your
+                    computer boots up.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isTogglingAutostart && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                  {isTogglingAutostart && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                  )}
                   <Switch
                     checked={isAutostartEnabled}
                     disabled={isTogglingAutostart}
@@ -254,11 +282,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground text-xs">FlowKey Desktop</span>
-                      <span className="text-[11px] font-mono text-muted-foreground">v1.0.0</span>
+                      <span className="font-semibold text-foreground text-xs">
+                        FlowKey Desktop
+                      </span>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        v1.0.0
+                      </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Check for new features, bug fixes, and performance improvements.
+                      Check for new features, bug fixes, and performance
+                      improvements.
                     </p>
                   </div>
 
@@ -284,12 +317,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Status Message */}
-                {updateStatusMessage && !updateInfo?.available && !updateErrorMessage && (
-                  <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-center gap-2 font-mono">
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>{updateStatusMessage}</span>
-                  </div>
-                )}
+                {updateStatusMessage &&
+                  !updateInfo?.available &&
+                  !updateErrorMessage && (
+                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-center gap-2 font-mono">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{updateStatusMessage}</span>
+                    </div>
+                  )}
 
                 {/* Error Message */}
                 {updateErrorMessage && (
@@ -352,7 +387,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-3 border-t border-border/40 bg-card/20 flex items-center justify-between text-[11px] text-muted-foreground">
           <span>FlowKey • Spotify Companion for Windows</span>
-          <Button variant="ghost" size="xs" onClick={onClose} className="h-6 text-xs cursor-pointer">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={onClose}
+            className="h-6 text-xs cursor-pointer"
+          >
             Done
           </Button>
         </div>

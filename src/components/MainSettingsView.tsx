@@ -21,10 +21,8 @@ import { MainWindowHeader } from "./MainWindowHeader";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Switch } from "./ui/switch";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
-import { Label } from "./ui/label";
 import {
   Tooltip,
   TooltipTrigger,
@@ -70,13 +68,6 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
   const [editingAliasId, setEditingAliasId] = useState<string | null>(null);
   const [aliasInputValue, setAliasInputValue] = useState("");
   const [showMoreDescription, setShowMoreDescription] = useState(false);
-  const [closeOnAction, setCloseOnAction] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("flowkey_close_on_action") === "true";
-    } catch {
-      return false;
-    }
-  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -113,16 +104,6 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
   }, []);
-
-  const handleToggleCloseOnAction = (checked: boolean) => {
-    setCloseOnAction(checked);
-    try {
-      localStorage.setItem("flowkey_close_on_action", String(checked));
-      showToast(checked ? "Enabled: Close window on action" : "Disabled: Close window on action");
-    } catch (e) {
-      console.warn("Storage error:", e);
-    }
-  };
 
   const handleToggleEnable = (actionId: string, currentVal: boolean) => {
     const updated = hotkeyService.toggleBinding(actionId, !currentVal);
@@ -234,8 +215,8 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
             </Collapsible>
           </div>
 
-          {/* Quick Settings & Status Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* Quick Settings & Status */}
+          <div>
             {/* Account Status Card */}
             <Card
               size="sm"
@@ -301,25 +282,6 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                     </Button>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Close on action Card */}
-            <Card size="sm" className="bg-card/70 border-border/60 hover:border-border transition-colors">
-              <CardContent className="flex items-center justify-between h-full py-3.5">
-                <div className="space-y-0.5 pr-2">
-                  <Label htmlFor="close-action-switch" className="text-xs font-semibold cursor-pointer">
-                    Close on Action
-                  </Label>
-                  <p className="text-[11px] text-muted-foreground leading-tight">
-                    Dismiss overlay after triggering actions
-                  </p>
-                </div>
-                <Switch
-                  id="close-action-switch"
-                  checked={closeOnAction}
-                  onCheckedChange={handleToggleCloseOnAction}
-                />
               </CardContent>
             </Card>
           </div>

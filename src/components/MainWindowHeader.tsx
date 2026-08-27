@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Minus, Square, Copy, X, Settings, Sparkles } from "lucide-react";
-import { SpotifyIcon } from "../assets/spotify-icon";
+import flowkeyLogo from "../assets/logo.png";
 import { Switch } from "./ui/switch";
 import { hotkeyService } from "../services/hotkeyService";
 import { updaterService } from "../services/updaterService";
@@ -188,12 +188,12 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
         data-tauri-drag-region
       >
         <div className="flex items-center gap-2">
-          <SpotifyIcon
-            className="w-4 h-4 "
-            color="#1ED760"
-            lineColor="#00000"
+          <img
+            src={flowkeyLogo}
+            alt="FlowKey"
+            className="w-4.5 h-4.5 rounded-md object-contain shadow-xs"
           />
-          <p className="text-xs font-semibold">Flowkey v2.0</p>
+          <p className="text-xs font-semibold tracking-wide">FlowKey</p>
         </div>
       </div>
 
