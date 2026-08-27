@@ -82,12 +82,10 @@ export const PlaylistPickerWindow: React.FC = () => {
     p.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Reset selectedIndex when filtered items change
   useEffect(() => {
     setSelectedIndex(0);
   }, [searchQuery]);
 
-  // Scroll selected item into view
   useEffect(() => {
     if (itemRefs.current[selectedIndex]) {
       itemRefs.current[selectedIndex]?.scrollIntoView({
@@ -171,7 +169,6 @@ export const PlaylistPickerWindow: React.FC = () => {
     <div className="w-screen h-screen bg-background/95 backdrop-blur-2xl text-foreground flex flex-col justify-between p-3 select-none font-sans border border-border rounded-xl shadow-2xl overflow-hidden relative">
       <OverlayToast message={toastMessage} />
 
-      {/* Header */}
       <div className="flex items-center justify-between pb-2 border-b border-border/50 relative z-20 shrink-0">
         <div className="flex flex-col min-w-0 pr-2">
           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
@@ -191,7 +188,6 @@ export const PlaylistPickerWindow: React.FC = () => {
         </button>
       </div>
 
-      {/* Search Input */}
       <div className="py-2 shrink-0">
         <div className="relative flex items-center">
           <div className="absolute left-2.5 text-muted-foreground pointer-events-none">
@@ -208,7 +204,6 @@ export const PlaylistPickerWindow: React.FC = () => {
         </div>
       </div>
 
-      {/* Playlists List */}
       <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
         {loading ? (
           <div className="space-y-2 p-1">

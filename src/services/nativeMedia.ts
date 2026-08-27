@@ -39,7 +39,7 @@ export async function triggerNativePlayPause(): Promise<NativeActionResult> {
       message: result || "VK_MEDIA_PLAY_PAUSE sent to Windows OS subsystem",
     };
   } catch {
-    // If running in pure web browser preview (outside Tauri)
+    
     const latency = Math.round((performance.now() - start) * 100) / 100;
     return {
       success: true,

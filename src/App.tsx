@@ -15,14 +15,12 @@ export function App() {
   );
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
-  // Sync initial now playing track id for skip comparison
   useEffect(() => {
     if (isAuthenticated) {
       spotifyService.getNowPlaying().catch(() => {});
     }
   }, [isAuthenticated]);
 
-  // Configure and register global OS shortcuts
   const refreshGlobalShortcuts = useCallback(() => {
     const handlers: HotkeyHandlers = {
       play_pause: async () => {
@@ -39,7 +37,6 @@ export function App() {
         try {
           await invoke("native_next_track");
 
-          // 1. Instantly query Windows native media (GSMTC & window title)
           setTimeout(async () => {
             if (seq !== skipSequence) return;
             const nativeInfo = await getNativeMediaInfo();
@@ -64,7 +61,6 @@ export function App() {
             }
           }, 60);
 
-          // 2. In background, enrich with full Spotify artwork and library sync
           if (spotifyService.isAuthenticated()) {
             const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
             if (seq === skipSequence && newItem) {
@@ -89,7 +85,6 @@ export function App() {
         try {
           await invoke("native_prev_track");
 
-          // 1. Instantly query Windows native media (GSMTC & window title)
           setTimeout(async () => {
             if (seq !== skipSequence) return;
             const nativeInfo = await getNativeMediaInfo();
@@ -114,7 +109,6 @@ export function App() {
             }
           }, 60);
 
-          // 2. In background, enrich with full Spotify artwork and library sync
           if (spotifyService.isAuthenticated()) {
             const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
             if (seq === skipSequence && newItem) {
@@ -287,7 +281,6 @@ export function App() {
     hotkeyService.registerAllShortcuts(handlers);
   }, []);
 
-  // Initial authentication check & OAuth broadcast listener
   useEffect(() => {
     spotifyService.handleUrlAuthRedirect();
     const authed = spotifyService.isAuthenticated();
@@ -305,7 +298,6 @@ export function App() {
     }
   }, []);
 
-  // Register shortcuts on mount / update
   useEffect(() => {
     refreshGlobalShortcuts();
   }, [refreshGlobalShortcuts]);

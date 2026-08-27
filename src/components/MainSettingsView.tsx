@@ -17,7 +17,6 @@ import { OverlayToast } from "./toasts/OverlayToast";
 import { HotkeyRecorderPopover } from "./HotkeyRecorderPopover";
 import { MainWindowHeader } from "./MainWindowHeader";
 
-// shadcn / base-ui components
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -154,13 +153,11 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
     <div className="w-full h-full flex flex-col bg-background text-foreground font-sans select-none overflow-hidden relative">
       <OverlayToast message={toastMessage} />
 
-      {/* Custom Window Header with Minimize, Maximize/Restore, Close controls */}
       <MainWindowHeader onOpenSettings={onOpenSettings} />
 
-      {/* Main Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
-          {/* Hero Section */}
+          
           <div className="flex flex-col items-center text-center space-y-3">
             <div className="relative group">
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/0 blur-sm group-hover:blur-md transition-all duration-300" />

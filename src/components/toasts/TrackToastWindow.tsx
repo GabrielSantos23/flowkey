@@ -53,14 +53,12 @@ export const TrackToastWindow: React.FC = () => {
     let unlistenWin: (() => void) | undefined;
     let bc: BroadcastChannel | null = null;
 
-    // 1. Listen via global app event
     listen<TrackToastPayload>("track_toast_event", (event) => {
       if (event.payload) handlePayload(event.payload);
     }).then((fn) => {
       unlistenApp = fn;
     });
 
-    // 2. Listen via webview window event
     try {
       const appWin = getCurrentWebviewWindow();
       appWin
@@ -72,7 +70,6 @@ export const TrackToastWindow: React.FC = () => {
         });
     } catch {}
 
-    // 3. Fallback broadcast channel
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       bc = new BroadcastChannel("flowkey_track_toast");
       bc.onmessage = (e) => {

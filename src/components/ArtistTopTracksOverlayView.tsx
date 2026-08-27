@@ -42,7 +42,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
     setTimeout(() => setToastMessage(null), 2500);
   }, []);
 
-  // Fetch top 10 tracks
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -133,7 +132,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
     queueShortcut,
   ]);
 
-  // Broadcast channel sync for overlay actions
   useEffect(() => {
     let actionBc: BroadcastChannel | null = null;
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -156,7 +154,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
     };
   }, [playlistShortcut.enabled, queueShortcut.enabled, selectedTrack, handleAddToQueue]);
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Alt" || (e.altKey && (e.key === " " || e.key === "Space"))) {
@@ -171,7 +168,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
         return;
       }
 
-      // Add to Playlist (Alt+A or custom shortcut)
       if ((e.altKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         if (!playlistShortcut.enabled) return;
         e.preventDefault();
@@ -181,7 +177,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
         return;
       }
 
-      // Add to Queue (Alt+Q or custom shortcut)
       if ((e.altKey || e.ctrlKey) && e.key.toLowerCase() === "q") {
         if (!queueShortcut.enabled) return;
         e.preventDefault();
@@ -228,7 +223,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
     onBack,
   ]);
 
-  // Auto-scroll selected item
   useEffect(() => {
     if (itemRefs.current[selectedIndex]) {
       itemRefs.current[selectedIndex]?.scrollIntoView({
@@ -250,7 +244,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
     <div className="w-full h-full flex flex-col justify-between select-none font-sans relative">
       <OverlayToast message={toastMessage} />
 
-      {/* Header matching Image 3: [ ← ] + Search songs input */}
       <div className="flex items-center gap-2 pb-2.5 border-b border-border/50 relative z-10 shrink-0">
         <button
           onClick={onBack}
@@ -283,7 +276,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
         </div>
       </div>
 
-      {/* Popular Songs Scrollable List */}
       <div className="flex-1 min-h-0 overflow-y-auto py-1.5 space-y-0.5 scroll-smooth pr-1 my-0.5">
         {loading ? (
           <div className="space-y-1.5 py-1">
@@ -325,7 +317,7 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
                     : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
                 }`}
               >
-                {/* Left: Thumbnail & Inline Title + Artist */}
+                
                 <div className="flex items-center gap-2.5 min-w-0 pr-4">
                   <div className="w-5.5 h-5.5 rounded-xs bg-muted border border-border/40 overflow-hidden shrink-0 relative flex items-center justify-center">
                     {img ? (
@@ -349,7 +341,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
                   </div>
                 </div>
 
-                {/* Right: Duration */}
                 <div className="text-xs font-mono text-muted-foreground shrink-0 font-medium">
                   {formatDuration(item.duration_ms)}
                 </div>
@@ -363,7 +354,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
         )}
       </div>
 
-      {/* Actions Popover */}
       <OverlayActionsMenuPopover
         isOpen={isActionsOpen}
         onClose={() => setIsActionsOpen(false)}
@@ -375,7 +365,6 @@ export const ArtistTopTracksOverlayView: React.FC<ArtistTopTracksOverlayViewProp
         className="bottom-14 right-0"
       />
 
-      {/* Bottom Footer matching Image 3 */}
       <div className="pt-3 border-t border-border flex items-center justify-between text-xs relative z-10 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-full bg-[#1db954] flex items-center justify-center text-black">

@@ -39,12 +39,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onConnect,
   onLogout,
 }) => {
-  // Autostart state
+  
   const [isAutostartEnabled, setIsAutostartEnabled] = useState<boolean>(false);
   const [isTogglingAutostart, setIsTogglingAutostart] =
     useState<boolean>(false);
 
-  // Updater state
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isDownloadingUpdate, setIsDownloadingUpdate] =
@@ -57,7 +56,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     null,
   );
 
-  // Fetch initial system autostart state
   useEffect(() => {
     if (!isOpen) return;
 
@@ -132,7 +130,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         className="sm:max-w-xl max-w-[calc(100%-2rem)] p-0 overflow-hidden bg-background border-[#242a3a] gap-0 text-xs select-none max-h-[85vh] flex flex-col shadow-2xl rounded-2xl"
         showCloseButton={true}
       >
-        {/* Header */}
+        
         <DialogHeader className="px-6 py-4 border-b border-border/40 bg-card/40 flex-row items-center gap-3 space-y-0 text-left">
           <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
             <Settings className="w-4 h-4" />
@@ -147,9 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </DialogHeader>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
-          {/* SECTION 1: Spotify Account Status */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5">
               <SpotifyIcon
@@ -225,7 +221,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </Card>
           </div>
 
-          {/* SECTION 2: System Startup (Autostart) */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5">
               <Laptop className="w-3.5 h-3.5 text-primary" />
@@ -270,7 +265,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </Card>
           </div>
 
-          {/* SECTION 3: App Updates */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
@@ -316,7 +310,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </Button>
                 </div>
 
-                {/* Status Message */}
                 {updateStatusMessage &&
                   !updateInfo?.available &&
                   !updateErrorMessage && (
@@ -326,7 +319,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   )}
 
-                {/* Error Message */}
                 {updateErrorMessage && (
                   <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300 flex items-center gap-2">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -334,15 +326,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 )}
 
-                {/* Update Available Banner */}
                 {updateInfo?.available && (
-                  <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-950/40 to-[#121922] border border-emerald-500/40 space-y-2.5">
+                  <div className="p-3.5 rounded-xl bg-secondary/40 border border-border space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-emerald-500 text-black font-bold text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 text-primary font-medium text-[10px] tracking-wide"
+                        >
                           NEW RELEASE
                         </Badge>
-                        <span className="font-bold text-foreground text-xs">
+                        <span className="font-semibold text-foreground text-xs">
                           Version {updateInfo.version}
                         </span>
                       </div>
@@ -384,7 +378,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-3 border-t border-border/40 bg-card/20 flex items-center justify-between text-[11px] text-muted-foreground">
           <span>FlowKey • Spotify Companion for Windows</span>
           <Button

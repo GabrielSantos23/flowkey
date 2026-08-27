@@ -70,12 +70,11 @@ export async function openSpotifyLoginInBrowser(redirectUri?: string): Promise<s
   const uri = redirectUri || getStoredRedirectUri();
   const authUrl = getSpotifyAuthorizeUrl(uri);
 
-  // If using IPv4 loopback (127.0.0.1), automatically spin up the background listener
   if (uri.includes("127.0.0.1")) {
     try {
       const urlObj = new URL(uri);
       const port = Number(urlObj.port) || 8888;
-      // Start loopback listener in background
+      
       invoke<{ access_token: string; expires_in: number; refresh_token?: string }>(
         "start_spotify_oauth_listener",
         {
@@ -148,14 +147,12 @@ class SpotifyService {
     const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY);
     this.tokenExpiry = expiryStr ? Number(expiryStr) : 0;
 
-    // Check if current URL has token from redirect (e.g. ?code=... or #access_token=...)
     this.handleUrlAuthRedirect();
   }
 
   public handleUrlAuthRedirect(): boolean {
     if (typeof window === "undefined") return false;
 
-    // 1. Check Query parameters (?code=...)
     if (window.location.search) {
       const queryParams = new URLSearchParams(window.location.search);
       const code = queryParams.get("code");
@@ -166,7 +163,6 @@ class SpotifyService {
       }
     }
 
-    // 2. Check Hash parameters (#access_token=...&expires_in=...)
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const token = hashParams.get("access_token");
@@ -270,7 +266,6 @@ class SpotifyService {
     let cleanCode = codeOrUrl.trim();
     let effectiveRedirectUri = redirectUri || getStoredRedirectUri();
 
-    // If a full callback URL was provided (e.g. http://localhost:8888/callback?code=AQB...)
     if (codeOrUrl.includes("code=")) {
       try {
         const urlObj = new URL(codeOrUrl.trim());
@@ -307,7 +302,7 @@ class SpotifyService {
         expiresIn = result.expires_in;
         refreshToken = result.refresh_token;
       } catch (rustErr) {
-        // Fallback via direct Spotify Token API fetch
+        
         const basic = btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`);
         const body = new URLSearchParams({
           grant_type: "authorization_code",
@@ -354,7 +349,7 @@ class SpotifyService {
       this.clientCredentialsToken = result.access_token;
       return result.access_token;
     } catch {
-      // Fallback via direct fetch
+      
       const basic = btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`);
       const res = await fetch("https://accounts.spotify.com/api/token", {
         method: "POST",
@@ -420,7 +415,6 @@ class SpotifyService {
     return false;
   }
 
-  // 1. Real Spotify API: Now Playing / Playback State
   public async getNowPlaying(): Promise<{
     data: SpotifyPlaybackState;
     status: number;
@@ -470,11 +464,10 @@ class SpotifyService {
           return { data, status: 200, latencyMs };
         }
       } catch {
-        // Continue to fallbacks
+        
       }
     }
 
-    // 2. Fallback: /v1/me/player/currently-playing
     try {
       const curRes = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
         headers: { Authorization: `Bearer ${token}` },
@@ -498,7 +491,7 @@ class SpotifyService {
         }
       }
     } catch {
-      // ignore
+      
     }
 
     return {
@@ -531,7 +524,7 @@ class SpotifyService {
         const res = await this.getNowPlaying();
         const item = res?.data?.item;
         if (item) {
-          // If we had a previousTrackId and the API still returns the old track, continue polling!
+          
           if (previousTrackId && item.id === previousTrackId) {
             continue;
           }
@@ -543,7 +536,6 @@ class SpotifyService {
       }
     }
 
-    // Fallback: return current track if available
     try {
       const res = await this.getNowPlaying();
       if (res?.data?.item) {
@@ -554,7 +546,6 @@ class SpotifyService {
     return null;
   }
 
-  // 2. Real Spotify API: Volume Adjustment
   public async setVolume(
     volumePercent: number
   ): Promise<{ status: number; latencyMs: number; volume: number }> {
@@ -587,7 +578,6 @@ class SpotifyService {
     return { status: res.status, latencyMs, volume: clamped };
   }
 
-  // 2b. Real Spotify API: Toggle/Set Shuffle
   public async setShuffle(state: boolean): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -607,7 +597,6 @@ class SpotifyService {
     }
   }
 
-  // 3. Real Spotify API: Add Track to Playlist (POST /v1/playlists/{id}/items)
   public async addTrackToPlaylist(
     playlistId: string,
     trackIdOrUri: string
@@ -623,7 +612,6 @@ class SpotifyService {
 
     const start = performance.now();
 
-    // 1. Primary: POST /v1/playlists/{id}/items (Spotify Feb 2026 unified items endpoint)
     let res = await fetch(`https://api.spotify.com/v1/playlists/${cleanPlaylistId}/items`, {
       method: "POST",
       headers: {
@@ -633,7 +621,6 @@ class SpotifyService {
       body: JSON.stringify({ uris: [uri] }),
     });
 
-    // 2. Fallback: POST /v1/playlists/{id}/tracks with JSON body
     if (!res.ok && res.status !== 200 && res.status !== 201) {
       res = await fetch(`https://api.spotify.com/v1/playlists/${cleanPlaylistId}/tracks`, {
         method: "POST",
@@ -662,12 +649,10 @@ class SpotifyService {
     return { status: res.status, latencyMs, snapshot_id: json.snapshot_id };
   }
 
-  // 3a. Liked Songs: Check if track is saved to library
   public async checkIsTrackLiked(trackId: string): Promise<boolean> {
     if (!trackId) return false;
     const cleanId = trackId.replace("spotify:track:", "").trim();
 
-    // 1. Check in-memory cache (valid for 30s)
     const cached = this.likedCache.get(cleanId);
     if (cached && Date.now() - cached.timestamp < 30000) {
       return cached.isLiked;
@@ -676,7 +661,6 @@ class SpotifyService {
     const token = await this.ensureValidToken();
     if (!token) return false;
 
-    // 2. Query Spotify Contains API
     try {
       const res = await fetch(`https://api.spotify.com/v1/me/tracks/contains?ids=${cleanId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -694,13 +678,12 @@ class SpotifyService {
         }
       }
     } catch {
-      // ignore
+      
     }
 
     return cached ? cached.isLiked : false;
   }
 
-  // 3b. Liked Songs: Save track to Liked Songs (PUT /v1/me/library?uris=spotify:track:...)
   public async saveTrackToLiked(trackIdOrUri: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -710,7 +693,6 @@ class SpotifyService {
     const uri = `spotify:track:${cleanId}`;
     const start = performance.now();
 
-    // Cache optimistically & broadcast across windows
     this.likedCache.set(cleanId, { isLiked: true, timestamp: Date.now() });
     try {
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -720,13 +702,11 @@ class SpotifyService {
       }
     } catch {}
 
-    // Use only the unified library endpoint with retry on 429
     let res = await fetch(`https://api.spotify.com/v1/me/library?uris=${uri}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Handle 429 rate limiting with Retry-After
     if (res.status === 429) {
       const retryAfter = Number(res.headers.get("Retry-After") || "3");
       const waitMs = Math.min(retryAfter * 1000, 10000);
@@ -747,7 +727,6 @@ class SpotifyService {
     return { status: res.status, latencyMs };
   }
 
-  // 3c. Liked Songs: Remove track from Liked Songs (DELETE /v1/me/library?uris=spotify:track:...)
   public async removeTrackFromLiked(trackIdOrUri: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -757,7 +736,6 @@ class SpotifyService {
     const uri = `spotify:track:${cleanId}`;
     const start = performance.now();
 
-    // Cache optimistically & broadcast across windows
     this.likedCache.set(cleanId, { isLiked: false, timestamp: Date.now() });
     try {
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -767,13 +745,11 @@ class SpotifyService {
       }
     } catch {}
 
-    // Use only the unified library endpoint with retry on 429
     let res = await fetch(`https://api.spotify.com/v1/me/library?uris=${uri}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Handle 429 rate limiting with Retry-After
     if (res.status === 429) {
       const retryAfter = Number(res.headers.get("Retry-After") || "3");
       const waitMs = Math.min(retryAfter * 1000, 10000);
@@ -794,7 +770,6 @@ class SpotifyService {
     return { status: res.status, latencyMs };
   }
 
-  // 3d. Play Artist Radio / Recommendations directly via Web API without opening browser
   public async playArtistRadio(artistId: string, trackId?: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -803,7 +778,6 @@ class SpotifyService {
 
     const start = performance.now();
 
-    // 1. Try recommendations endpoint to get curated seed tracks
     try {
       const seedParam = trackId
         ? `seed_tracks=${trackId}&seed_artists=${artistId}&limit=30`
@@ -832,7 +806,6 @@ class SpotifyService {
       console.warn("Recommendations radio fetch failed, falling back to context_uri:", e);
     }
 
-    // 2. Fallback: Start playback with artist context_uri
     const playRes = await fetch("https://api.spotify.com/v1/me/player/play", {
       method: "PUT",
       headers: {
@@ -850,7 +823,6 @@ class SpotifyService {
     return { status: playRes.status, latencyMs };
   }
 
-  // 3d. Album Details: Get full album metadata and tracks list (GET /v1/albums/{id})
   public async getAlbumDetails(albumId: string): Promise<{
     data: any;
     status: number;
@@ -873,7 +845,6 @@ class SpotifyService {
     return { data, status: res.status, latencyMs };
   }
 
-  // 3e. Play specific track directly
   public async playTrack(trackUri: string, contextUri?: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -901,7 +872,6 @@ class SpotifyService {
     return { status: res.status, latencyMs };
   }
 
-  // 3e2. Play Context (Album, Playlist, Artist context_uri)
   public async playContext(contextUri: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -924,7 +894,6 @@ class SpotifyService {
     return { status: res.status, latencyMs };
   }
 
-  // 3f. Add Track to Queue (POST /v1/me/player/queue?uri=...)
   public async addTrackToQueue(trackUri: string, deviceId?: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -994,7 +963,6 @@ class SpotifyService {
     return null;
   }
 
-  // 4. Real Spotify API: User Playlists (Paginated to load all playlists)
   public async getPlaylists(onlyEditable = false): Promise<{
     items: SpotifyPlaylist[];
     status: number;
@@ -1005,8 +973,7 @@ class SpotifyService {
       throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account to load playlists.");
     }
 
-    // Always ensure we have currentUserId before fetching playlists
-    // so the editable filter is reliable
+    
     if (!this.currentUserId) {
       await this.getCurrentUser();
     }
@@ -1015,7 +982,7 @@ class SpotifyService {
     let allRawItems: any[] = [];
     let nextUrl: string | null = "https://api.spotify.com/v1/me/playlists?limit=50";
     let pages = 0;
-    const MAX_PAGES = 20; // Up to 1000 playlists
+    const MAX_PAGES = 20; 
 
     while (nextUrl && pages < MAX_PAGES) {
       const res = await fetch(nextUrl, {
@@ -1054,14 +1021,13 @@ class SpotifyService {
       }));
 
     if (onlyEditable) {
-      // Keep playlists the user owns or can collaborate on
-      // The /me/playlists endpoint already returns only playlists the user follows or owns.
-      // We additionally filter to only those the user can write to.
+
+      
       items = items.filter((p) => {
         if (!p) return false;
-        // User is the owner
+        
         if (this.currentUserId && p.owner?.id === this.currentUserId) return true;
-        // Collaborative playlist (anyone with access can add)
+        
         if (p.collaborative === true) return true;
         return false;
       });
@@ -1070,7 +1036,6 @@ class SpotifyService {
     return { items, status: 200, latencyMs };
   }
 
-  // 5. Real Spotify API: Search
   public async search(
     query: string,
     types: SearchTypeFilter[]
@@ -1079,7 +1044,6 @@ class SpotifyService {
       return { data: {}, status: 200, latencyMs: 0 };
     }
 
-    // Use user access token if available, otherwise use client credentials token
     let token = this.accessToken;
     if (!token) {
       try {
@@ -1108,7 +1072,6 @@ class SpotifyService {
     return { data: json, status: res.status, latencyMs };
   }
 
-  // 6. Real Spotify API: Your Library
   public async getLibrary(tab: "playlists" | "albums" | "artists" | "podcasts"): Promise<{
     items: any[];
     status: number;
@@ -1174,7 +1137,6 @@ class SpotifyService {
     return { items, status: res.status, latencyMs };
   }
 
-  // 7. Get Artist Albums (Studio Albums only)
   public async getArtistAlbums(
     artistId: string,
     artistName?: string
@@ -1193,8 +1155,7 @@ class SpotifyService {
         if (!alb?.id) return;
         if (albumMap.has(alb.id)) return;
 
-        // Exclude singles and EPs:
-        // Check album_type and album_group
+        
         if (alb.album_type === "single" || alb.album_group === "single") return;
         if (alb.album_type === "compilation" || alb.album_group === "appears_on") return;
         if (typeof alb.total_tracks === "number" && alb.total_tracks <= 3) return;
@@ -1207,7 +1168,6 @@ class SpotifyService {
       });
     };
 
-    // 1. Direct artist albums endpoint with include_groups=album & market=US
     try {
       const res = await fetch(
         `https://api.spotify.com/v1/artists/${cleanId}/albums?include_groups=album&market=US`,
@@ -1216,7 +1176,7 @@ class SpotifyService {
       if (res.ok) {
         const json = await res.json();
         addAlbums(json.items || []);
-        // Fetch next pages if any
+        
         let next = json.next;
         let pages = 0;
         while (next && pages < 4) {
@@ -1237,7 +1197,6 @@ class SpotifyService {
       console.warn("Direct artist albums fetch error:", e);
     }
 
-    // 2. Search by artist name as supplement (filtered to albums only)
     if (artistName) {
       const queries = [
         `artist:"${artistName}"`,
@@ -1261,7 +1220,7 @@ class SpotifyService {
 
     const latencyMs = Math.round(performance.now() - start);
     const items = Array.from(albumMap.values()).sort((a, b) => {
-      // Sort by release date descending
+      
       const da = a.release_date || "";
       const db = b.release_date || "";
       return db.localeCompare(da);
@@ -1269,7 +1228,6 @@ class SpotifyService {
     return { items, status: 200, latencyMs };
   }
 
-  // 8. Get Artist Top 10 Popular Tracks
   public async getArtistTopTracks(
     artistId: string,
     artistName?: string
@@ -1281,7 +1239,6 @@ class SpotifyService {
     const cleanId = artistId.replace("spotify:artist:", "").trim();
     const start = performance.now();
 
-    // 1. Try direct top-tracks endpoint
     try {
       const res = await fetch(
         `https://api.spotify.com/v1/artists/${cleanId}/top-tracks?market=US`,
@@ -1298,7 +1255,6 @@ class SpotifyService {
       console.warn("Direct top tracks fetch error:", e);
     }
 
-    // 2. Guaranteed Fallback: Search tracks by artist name (sorted by Spotify popularity)
     const searchQuery = artistName ? `artist:"${artistName}"` : `artist:${cleanId}`;
     const searchRes = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=10`,
@@ -1314,7 +1270,6 @@ class SpotifyService {
     return { items: searchJson.tracks?.items || [], status: searchRes.status, latencyMs };
   }
 
-  // 9. Save Album to Library (PUT /v1/me/albums?ids=...)
   public async saveAlbumToLibrary(albumId: string): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {

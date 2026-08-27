@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Minus, Square, Copy, X, Settings, Sparkles } from "lucide-react";
+import { Minus, Square, Copy, X, Settings } from "lucide-react";
 import flowkeyLogo from "../assets/logo.png";
 import { Switch } from "./ui/switch";
 import { hotkeyService } from "../services/hotkeyService";
@@ -23,7 +23,6 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
   const [hasUpdate, setHasUpdate] = useState<boolean>(false);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
 
-  // Check for updates on header mount & listen to update status events
   useEffect(() => {
     let isMounted = true;
     updaterService
@@ -82,14 +81,13 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
     setIsCommandsEnabled(checked);
   };
 
-  // Check and sync maximized state
   const checkMaximized = useCallback(async () => {
     try {
       const appWindow = getCurrentWebviewWindow();
       const max = await appWindow.isMaximized();
       setIsMaximized(max);
     } catch {
-      // In non-Tauri or browser preview mode
+      
     }
   }, []);
 
@@ -128,7 +126,7 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
       const appWindow = getCurrentWebviewWindow();
       await appWindow.startDragging();
     } catch (err) {
-      // Handled via data-tauri-drag-region or permission
+      
     }
   };
 
@@ -191,7 +189,7 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
           <img
             src={flowkeyLogo}
             alt="FlowKey"
-            className="w-4.5 h-4.5 rounded-md object-contain shadow-xs"
+            className="w-5.5 h-5.5 object-contain"
           />
           <p className="text-xs font-semibold tracking-wide">FlowKey</p>
         </div>
@@ -200,7 +198,6 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
       <div data-tauri-drag-region className="flex-1 h-full cursor-default" />
 
       <div className="flex items-center h-full pointer-events-auto z-10">
-        {/* Update Available Indicator Button */}
         {hasUpdate && (
           <button
             type="button"
@@ -208,15 +205,19 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
               e.stopPropagation();
               onOpenSettings?.();
             }}
-            className="flex items-center gap-1.5 px-2.5 py-0.5 mr-2 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 text-[10px] font-semibold transition-all shadow-xs cursor-pointer animate-pulse"
+            className="flex items-center gap-1.5 px-2.5 py-0.5 mr-2 rounded-full bg-secondary/60 hover:bg-secondary text-foreground border border-border text-[10px] font-semibold transition-colors shadow-xs cursor-pointer"
             title="Update available! Click to view update."
           >
-            <Sparkles className="w-3 h-3 text-emerald-400" />
-            <span>Update {updateVersion ? `v${updateVersion}` : "Available"}</span>
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+            </span>
+            <span>
+              Update {updateVersion ? `v${updateVersion}` : "Available"}
+            </span>
           </button>
         )}
 
-        {/* Master Commands Enable Switch */}
         <div
           className="flex items-center px-3 h-full border-r border-border/30"
           onClick={(e) => e.stopPropagation()}
@@ -230,7 +231,6 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
           />
         </div>
 
-        {/* Settings Modal Button */}
         {onOpenSettings && (
           <button
             type="button"
@@ -245,7 +245,6 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
           </button>
         )}
 
-        {/* Minimize Button */}
         <button
           type="button"
           onClick={handleMinimize}
@@ -255,7 +254,6 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
           <Minus className="w-3.5 h-3.5" />
         </button>
 
-        {/* Maximize / Restore Button */}
         <button
           type="button"
           onClick={handleToggleMaximize}
@@ -269,7 +267,6 @@ export const MainWindowHeader: React.FC<MainWindowHeaderProps> = ({
           )}
         </button>
 
-        {/* Close Button */}
         <button
           type="button"
           onClick={handleClose}

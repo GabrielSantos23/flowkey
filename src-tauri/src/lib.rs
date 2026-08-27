@@ -165,14 +165,13 @@ fn get_spotify_window_title_info() -> Result<NativeMediaMetadata, String> {
 async fn get_native_media_info() -> Result<NativeMediaMetadata, String> {
     #[cfg(target_os = "windows")]
     {
-        // 1. Try Windows GSMTC (GlobalSystemMediaTransportControls)
+        
         if let Ok(meta) = get_windows_media_properties() {
             if !meta.title.is_empty() {
                 return Ok(meta);
             }
         }
 
-        // 2. Fallback: Parse Spotify Desktop Window Title
         if let Ok(meta) = get_spotify_window_title_info() {
             if !meta.title.is_empty() {
                 return Ok(meta);
@@ -302,7 +301,6 @@ async fn start_spotify_oauth_listener(
         .await
         .map_err(|e| format!("Failed to bind loopback server on {}: {}", addr, e))?;
 
-    // Wait for incoming redirect with a 3-minute timeout
     let (mut stream, _) = tokio::time::timeout(
         std::time::Duration::from_secs(180),
         listener.accept(),
@@ -531,7 +529,7 @@ async fn hide_now_playing_overlay(app: AppHandle) -> Result<(), String> {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TrackToastPayload {
-    pub action: String, // "next" | "prev"
+    pub action: String, 
     pub title: Option<String>,
     pub artist: Option<String>,
     pub album_art: Option<String>,
@@ -540,17 +538,16 @@ pub struct TrackToastPayload {
 #[command]
 async fn show_track_toast(app: AppHandle, payload: TrackToastPayload) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("toast") {
-        // Ensure cursor events are ignored so window is completely non-interactive
+        
         let _ = window.set_ignore_cursor_events(true);
 
-        // Position in bottom right corner of primary/current monitor
         if let Ok(Some(monitor)) = window.current_monitor() {
             let screen_size = monitor.size();
             let scale_factor = monitor.scale_factor();
             let toast_width = (360.0 * scale_factor) as i32;
             let toast_height = (96.0 * scale_factor) as i32;
             let margin_x = (24.0 * scale_factor) as i32;
-            let margin_y = (48.0 * scale_factor) as i32; // clearance above taskbar
+            let margin_y = (48.0 * scale_factor) as i32; 
 
             let x = screen_size.width as i32 - toast_width - margin_x;
             let y = screen_size.height as i32 - toast_height - margin_y;

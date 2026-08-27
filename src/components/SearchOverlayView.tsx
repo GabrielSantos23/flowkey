@@ -509,7 +509,6 @@ export const SearchOverlayView: React.FC<SearchOverlayViewProps> = ({
         e.preventDefault();
       }
 
-      // Actions toggle (Ctrl+K)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         e.stopPropagation();
@@ -518,7 +517,6 @@ export const SearchOverlayView: React.FC<SearchOverlayViewProps> = ({
         return;
       }
 
-      // Add to Queue (Alt+Q or user custom shortcut)
       if ((e.altKey || e.ctrlKey) && e.key.toLowerCase() === "q") {
         if (!queueShortcut.enabled) return;
         e.preventDefault();
@@ -527,7 +525,6 @@ export const SearchOverlayView: React.FC<SearchOverlayViewProps> = ({
         return;
       }
 
-      // Add to Playlist (Alt+A or user custom shortcut) - Only if a track item is selected
       if ((e.altKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         if (!playlistShortcut.enabled) return;
         if (selectedItem?.type === "track") {

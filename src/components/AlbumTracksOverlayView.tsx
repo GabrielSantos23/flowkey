@@ -210,7 +210,6 @@ export const AlbumTracksOverlayView: React.FC<AlbumTracksOverlayViewProps> = ({
         return;
       }
 
-      // Add to Playlist (Alt+A or custom shortcut)
       if ((e.altKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
         if (!playlistShortcut.enabled) return;
         e.preventDefault();
@@ -220,7 +219,6 @@ export const AlbumTracksOverlayView: React.FC<AlbumTracksOverlayViewProps> = ({
         return;
       }
 
-      // Add to Queue (Alt+Q or custom shortcut)
       if ((e.altKey || e.ctrlKey) && e.key.toLowerCase() === "q") {
         if (!queueShortcut.enabled) return;
         e.preventDefault();

@@ -20,7 +20,7 @@ import { ActionCloseIcon } from "./OverlayActionIcons";
 type OverlayView = "now_playing" | "album_tracks";
 
 const OVERLAY_STATE_STORAGE_KEY = "flowkey_overlay_saved_view";
-const RESTORE_TIMEOUT_MS = 60 * 1000; // 1 minute (60 seconds)
+const RESTORE_TIMEOUT_MS = 60 * 1000; 
 
 interface SavedOverlayState {
   view: OverlayView;
@@ -96,7 +96,6 @@ export const NowPlayingOverlayWindow: React.FC = () => {
     trackRef.current = track;
   }, [track]);
 
-  // Persist current view & arguments to localStorage
   const saveCurrentViewState = useCallback(
     (
       view: OverlayView = currentView,
@@ -116,12 +115,10 @@ export const NowPlayingOverlayWindow: React.FC = () => {
     [currentView, activeAlbumId],
   );
 
-  // Sync state changes to storage
   useEffect(() => {
     saveCurrentViewState(currentView, activeAlbumId);
   }, [currentView, activeAlbumId, saveCurrentViewState]);
 
-  // Restore previous view if within 1 minute, otherwise default to now_playing
   const restoreOrResetView = useCallback(() => {
     try {
       const raw = localStorage.getItem(OVERLAY_STATE_STORAGE_KEY);
@@ -138,7 +135,7 @@ export const NowPlayingOverlayWindow: React.FC = () => {
     } catch (e) {
       console.warn("Error restoring overlay state:", e);
     }
-    // Expired or now_playing
+    
     setCurrentView("now_playing");
     setActiveAlbumId(null);
   }, []);
@@ -171,7 +168,7 @@ export const NowPlayingOverlayWindow: React.FC = () => {
   }, []);
 
   const handleClose = useCallback(async () => {
-    // Record current timestamp upon closing to start the 1-minute countdown
+    
     saveCurrentViewState(currentView, activeAlbumId);
     try {
       await invoke("hide_now_playing_overlay");
@@ -404,7 +401,7 @@ export const NowPlayingOverlayWindow: React.FC = () => {
     if (currentView !== "now_playing") return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent Windows OS system menu (Alt / Alt+Space)
+      
       if (
         e.key === "Alt" ||
         (e.altKey && (e.key === " " || e.key === "Space"))
@@ -443,7 +440,7 @@ export const NowPlayingOverlayWindow: React.FC = () => {
       }
 
       if (isActionsOpen) {
-        // OverlayActionsMenuPopover handles its own internal navigation
+        
         return;
       }
 

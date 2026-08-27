@@ -47,7 +47,6 @@ export const OverlayActionsMenuPopover: React.FC<
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Playlists state
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [addingToPlaylistId, setAddingToPlaylistId] = useState<string | null>(
@@ -58,7 +57,6 @@ export const OverlayActionsMenuPopover: React.FC<
   const searchInputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Filtered actions
   const filteredActions = useMemo(() => {
     if (mode !== "actions") return [];
     return actions.filter((item) =>
@@ -66,7 +64,6 @@ export const OverlayActionsMenuPopover: React.FC<
     );
   }, [actions, searchQuery, mode]);
 
-  // Filtered playlists
   const filteredPlaylists = useMemo(() => {
     if (mode !== "playlist") return [];
     return playlists.filter((p) =>
@@ -74,7 +71,6 @@ export const OverlayActionsMenuPopover: React.FC<
     );
   }, [playlists, searchQuery, mode]);
 
-  // Helper to find next enabled index
   const getNextEnabledIndex = useCallback(
     (
       currentIndex: number,
@@ -97,7 +93,6 @@ export const OverlayActionsMenuPopover: React.FC<
     [],
   );
 
-  // Load playlists when opened or mode changed to playlist
   useEffect(() => {
     if (
       isOpen &&
@@ -121,7 +116,6 @@ export const OverlayActionsMenuPopover: React.FC<
     }
   }, [isOpen, mode, playlists.length, loadingPlaylists, onShowToast]);
 
-  // Sync mode with initialMode on open
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
@@ -130,7 +124,6 @@ export const OverlayActionsMenuPopover: React.FC<
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialMode]);
 
-  // Reset search and selection on open or mode switch
   useEffect(() => {
     if (isOpen) {
       setSearchQuery("");
@@ -148,7 +141,6 @@ export const OverlayActionsMenuPopover: React.FC<
     }
   }, [isOpen, mode, initialMode]);
 
-  // Adjust selected index when filteredActions change so we never stay on a disabled item
   useEffect(() => {
     if (mode === "actions" && filteredActions.length > 0) {
       if (filteredActions[selectedIndex]?.disabled) {
@@ -158,7 +150,6 @@ export const OverlayActionsMenuPopover: React.FC<
     }
   }, [filteredActions, mode, selectedIndex, getNextEnabledIndex]);
 
-  // Auto-scroll selected item into view
   useEffect(() => {
     if (isOpen && itemRefs.current[selectedIndex]) {
       itemRefs.current[selectedIndex]?.scrollIntoView({
@@ -168,7 +159,6 @@ export const OverlayActionsMenuPopover: React.FC<
     }
   }, [selectedIndex, isOpen]);
 
-  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -219,12 +209,11 @@ export const OverlayActionsMenuPopover: React.FC<
     onClose();
   };
 
-  // Keyboard navigation inside popover
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent Windows OS window menu
+      
       if (
         e.key === "Alt" ||
         (e.altKey && (e.key === " " || e.key === "Space"))
@@ -308,7 +297,7 @@ export const OverlayActionsMenuPopover: React.FC<
       ref={containerRef}
       className={`absolute ${className} w-64 rounded-xl bg-card border border-border shadow-2xl backdrop-blur-2xl z-50 overflow-hidden flex flex-col animate-fade-in select-none font-sans`}
     >
-      {/* Playlist Mode Header */}
+      
       {mode === "playlist" && (
         <div className="px-2.5 py-2 border-b border-border/50 flex items-center justify-between text-xs font-semibold text-muted-foreground bg-secondary/30">
           <div className="flex items-center gap-1.5 truncate">
@@ -333,7 +322,6 @@ export const OverlayActionsMenuPopover: React.FC<
         </div>
       )}
 
-      {/* Items Scrollable List */}
       <div className="p-1.5 space-y-0.5 max-h-52 overflow-y-auto scroll-smooth">
         {mode === "actions" ? (
           filteredActions.length > 0 ? (
@@ -434,7 +422,6 @@ export const OverlayActionsMenuPopover: React.FC<
         )}
       </div>
 
-      {/* Search Bar at Bottom */}
       <div className="p-2 border-t border-border bg-card/90 flex items-center gap-1.5">
         <ActionSearchIcon />
         <input

@@ -271,10 +271,9 @@ class HotkeyService {
   }
 
   public async registerAllShortcuts(handlers: HotkeyHandlers): Promise<void> {
-    // 1. In-app fallback listener for 0ms active window response
+    
     this.setupWindowKeyListener(handlers);
 
-    // 2. Unregister existing global shortcuts
     try {
       await unregisterAll();
     } catch (e) {
@@ -282,12 +281,10 @@ class HotkeyService {
     }
     this.registeredShortcuts.clear();
 
-    // If master switch is enabled (commands disabled), do not register global shortcuts
     if (this.isMasterDisabled()) {
       return;
     }
 
-    // 3. Register with OS global shortcut hook
     const bindings = this.getBindings();
     for (const binding of bindings) {
       if (!binding.enabled || !binding.currentShortcut.trim()) continue;
@@ -324,7 +321,6 @@ class HotkeyService {
     this.windowKeyHandler = (e: KeyboardEvent) => {
       if (this.isMasterDisabled()) return;
 
-      // Don't intercept when user is typing in form inputs or recording keys in modal
       const target = e.target as HTMLElement;
       if (
         target?.tagName === "INPUT" ||
@@ -373,7 +369,7 @@ class HotkeyService {
   }
 
   public parseKeyboardEvent(e: React.KeyboardEvent | KeyboardEvent): string | null {
-    // Ignore stand-alone modifier presses
+    
     if (["Control", "Alt", "Shift", "Meta", "CapsLock", "Tab"].includes(e.key)) {
       return null;
     }
@@ -384,7 +380,6 @@ class HotkeyService {
     if (e.shiftKey) parts.push("Shift");
     if (e.metaKey) parts.push("Super");
 
-    // Standardize key name
     let key = e.key;
     if (key === " ") key = "Space";
     else if (key === "ArrowUp") key = "ArrowUp";

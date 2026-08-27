@@ -43,7 +43,6 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
     setTimeout(() => setToastMessage(null), 2500);
   }, []);
 
-  // Fetch artist albums on mount
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -52,7 +51,7 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
       .getArtistAlbums(artist.id, artist.name)
       .then((res) => {
         if (mounted) {
-          // Deduplicate albums by ID or clean name
+          
           const seen = new Set<string>();
           const deduped = (res.items || []).filter((item) => {
             const key = item.id || item.name.toLowerCase().trim();
@@ -119,7 +118,6 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
     spotifyShortcut,
   ]);
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Alt" || (e.altKey && (e.key === " " || e.key === "Space"))) {
@@ -178,7 +176,6 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isActionsOpen, filteredAlbums, selectedAlbum, onBack, onSelectAlbum]);
 
-  // Auto-scroll selected item
   useEffect(() => {
     if (itemRefs.current[selectedIndex]) {
       itemRefs.current[selectedIndex]?.scrollIntoView({
@@ -192,7 +189,6 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
     <div className="w-full h-full flex flex-col justify-between select-none font-sans relative">
       <OverlayToast message={toastMessage} />
 
-      {/* Header matching Image 2: [ ← ] + Search albums input */}
       <div className="flex items-center gap-2 pb-2.5 border-b border-border/50 relative z-10 shrink-0">
         <button
           onClick={onBack}
@@ -225,12 +221,10 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
         </div>
       </div>
 
-      {/* Artist Name Subheader */}
       <div className="pt-2 pb-1 text-xs font-bold text-muted-foreground uppercase tracking-wide">
         {artist.name}
       </div>
 
-      {/* 5-Columns Grid View matching Image 2 */}
       <div className="flex-1 min-h-0 overflow-y-auto py-1 scroll-smooth pr-1 my-0.5">
         {loading ? (
           <div className="grid grid-cols-5 gap-3 py-1">
@@ -266,7 +260,7 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
                       : "hover:bg-secondary/30"
                   }`}
                 >
-                  {/* Square Artwork */}
+                  
                   <div className="w-full aspect-square rounded-sm bg-muted border border-border/40 overflow-hidden relative flex items-center justify-center mb-1.5 shadow-sm">
                     {img ? (
                       <img
@@ -279,12 +273,10 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
                     )}
                   </div>
 
-                  {/* Album Name */}
                   <span className="text-[11px] font-bold text-foreground truncate block leading-tight">
                     {album.name}
                   </span>
 
-                  {/* Artist & Year */}
                   <span className="text-[10px] text-muted-foreground truncate block leading-tight mt-0.5">
                     {artistNames} {releaseYear ? `• ${releaseYear}` : ""}
                   </span>
@@ -299,7 +291,6 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
         )}
       </div>
 
-      {/* Actions Popover */}
       <OverlayActionsMenuPopover
         isOpen={isActionsOpen}
         onClose={() => setIsActionsOpen(false)}
@@ -309,7 +300,6 @@ export const ArtistAlbumsOverlayView: React.FC<ArtistAlbumsOverlayViewProps> = (
         className="bottom-14 right-0"
       />
 
-      {/* Bottom Footer matching Image 2 */}
       <div className="pt-3 border-t border-border flex items-center justify-between text-xs relative z-10 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-full bg-[#1db954] flex items-center justify-center text-black">

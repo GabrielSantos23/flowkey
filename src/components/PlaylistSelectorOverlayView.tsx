@@ -77,10 +77,9 @@ export const PlaylistSelectorOverlayView: React.FC<PlaylistSelectorOverlayViewPr
     }
   };
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Prevent Windows OS system menu (Alt / Alt+Space)
+      
       if (e.key === "Alt" || (e.altKey && (e.key === " " || e.key === "Space"))) {
         e.preventDefault();
       }
@@ -126,7 +125,6 @@ export const PlaylistSelectorOverlayView: React.FC<PlaylistSelectorOverlayViewPr
     };
   }, [filteredPlaylists, selectedIndex, onBack]);
 
-  // Auto-scroll selected item into view
   useEffect(() => {
     if (itemRefs.current[selectedIndex]) {
       itemRefs.current[selectedIndex]?.scrollIntoView({
@@ -138,10 +136,9 @@ export const PlaylistSelectorOverlayView: React.FC<PlaylistSelectorOverlayViewPr
 
   return (
     <div className="w-full h-full flex flex-col justify-between select-none font-sans relative">
-      {/* Toast Feedback */}
+      
       <OverlayToast message={feedback} />
 
-      {/* Header */}
       <div className="flex items-center gap-3 pb-3 border-b border-border relative z-10 shrink-0">
         <button
           onClick={onBack}
@@ -167,7 +164,6 @@ export const PlaylistSelectorOverlayView: React.FC<PlaylistSelectorOverlayViewPr
         </div>
       </div>
 
-      {/* Playlists List */}
       <div
         ref={listRef}
         className="flex-1 min-h-0 overflow-y-auto py-2 space-y-1 scroll-smooth pr-1 my-1"
@@ -235,7 +231,6 @@ export const PlaylistSelectorOverlayView: React.FC<PlaylistSelectorOverlayViewPr
         )}
       </div>
 
-      {/* Footer */}
       <div className="pt-3 border-t border-border flex items-center justify-between text-xs relative z-10 shrink-0">
         <span className="text-muted-foreground text-xs">
           Select a playlist to add <strong className="text-foreground">"{trackName}"</strong>
