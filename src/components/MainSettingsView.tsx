@@ -27,6 +27,7 @@ import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   Tooltip,
   TooltipTrigger,
@@ -343,48 +344,38 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                   </Badge>
                 </div>
 
-                {/* Quick Filter Chips */}
-                <div className="flex items-center bg-muted/30 p-0.5 rounded-lg border border-border/40">
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter("all")}
-                    disabled={isMasterDisabled}
-                    className={cn(
-                      "text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer",
-                      statusFilter === "all"
-                        ? "bg-card text-foreground shadow-xs font-semibold"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter("active")}
-                    disabled={isMasterDisabled}
-                    className={cn(
-                      "text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer",
-                      statusFilter === "active"
-                        ? "bg-card text-[#1ed760] shadow-xs font-semibold"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Active
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter("inactive")}
-                    disabled={isMasterDisabled}
-                    className={cn(
-                      "text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer",
-                      statusFilter === "inactive"
-                        ? "bg-card text-foreground shadow-xs font-semibold"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Inactive
-                  </button>
-                </div>
+                {/* Quick Filter Tabs */}
+                <Tabs
+                  value={statusFilter}
+                  onValueChange={(val) =>
+                    setStatusFilter(val as "all" | "active" | "inactive")
+                  }
+                  className="flex-row items-center"
+                >
+                  <TabsList className="h-7 p-0.5 bg-muted/30 border border-border/40 rounded-lg">
+                    <TabsTrigger
+                      value="all"
+                      disabled={isMasterDisabled}
+                      className="text-[10px] px-2 py-0.5 h-full rounded-md font-medium cursor-pointer data-active:bg-card data-active:text-foreground data-active:shadow-xs data-active:font-semibold"
+                    >
+                      All
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="active"
+                      disabled={isMasterDisabled}
+                      className="text-[10px] px-2 py-0.5 h-full rounded-md font-medium cursor-pointer data-active:bg-card data-active:text-[#1ed760] data-active:shadow-xs data-active:font-semibold"
+                    >
+                      Active
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="inactive"
+                      disabled={isMasterDisabled}
+                      className="text-[10px] px-2 py-0.5 h-full rounded-md font-medium cursor-pointer data-active:bg-card data-active:text-foreground data-active:shadow-xs data-active:font-semibold"
+                    >
+                      Inactive
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               {/* Right Side: Search Input with Fixed Width */}
