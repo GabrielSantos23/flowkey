@@ -668,7 +668,24 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            let is_autostart = std::env::args().any(|arg| arg == "--autostart" || arg == "--silent" || arg == "--minimized");
+            use tauri_plugin_autostart::ManagerExt;
+
+            let is_autostart_arg = std::env::args().any(|arg| {
+                let a = arg.to_lowercase();
+                a == "--autostart" || a == "--silent" || a == "--minimized" || a.contains("autostart")
+            });
+
+            let is_recent_boot = sysinfo::System::uptime() < 120;
+            let autolaunch = app.autolaunch();
+            let autolaunch_enabled = autolaunch.is_enabled().unwrap_or(false);
+
+            if autolaunch_enabled {
+                let _ = autolaunch.disable();
+                let _ = autolaunch.enable();
+            }
+
+            let is_autostart = is_autostart_arg || (is_recent_boot && autolaunch_enabled);
+
             if !is_autostart {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
