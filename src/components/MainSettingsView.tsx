@@ -6,12 +6,17 @@ import {
   Search,
   Sparkles,
   Command as CommandIcon,
+  Settings,
+  Plus,
+  X,
+  Pencil,
 } from "lucide-react";
 import { SpotifyIcon } from "../assets/spotify-icon";
 import { Kbd, KbdGroup } from "./ui/kbd";
 import {
   hotkeyService,
   HotkeyBinding,
+  toTauriShortcut,
 } from "../services/hotkeyService";
 import { OverlayToast } from "./toasts/OverlayToast";
 import { HotkeyRecorderPopover } from "./HotkeyRecorderPopover";
@@ -21,7 +26,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
-import { Checkbox } from "./ui/checkbox";
+import { Switch } from "./ui/switch";
 import {
   Tooltip,
   TooltipTrigger,
@@ -40,6 +45,7 @@ import {
   TableRow,
   TableCell,
 } from "./ui/table";
+import { cn } from "../lib/utils";
 
 interface MainSettingsViewProps {
   isAuthenticated: boolean;
@@ -63,6 +69,7 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
     hotkeyService.isMasterDisabled()
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [recordingBinding, setRecordingBinding] = useState<HotkeyBinding | null>(null);
   const [editingAliasId, setEditingAliasId] = useState<string | null>(null);
   const [aliasInputValue, setAliasInputValue] = useState("");
@@ -137,17 +144,44 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
     showToast("Reset all shortcuts to defaults");
   };
 
+  // Map of normalized shortcuts to list of binding names (for conflict detection)
+  const conflictMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const b of bindings) {
+      if (!b.enabled || !b.currentShortcut?.trim()) continue;
+      const norm = toTauriShortcut(b.currentShortcut).toLowerCase();
+      if (!map.has(norm)) {
+        map.set(norm, []);
+      }
+      map.get(norm)!.push(b.name);
+    }
+    return map;
+  }, [bindings]);
+
   const filteredBindings = useMemo(() => {
-    if (!searchQuery.trim()) return bindings;
-    const q = searchQuery.toLowerCase();
-    return bindings.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) ||
-        b.description.toLowerCase().includes(q) ||
-        (b.alias && b.alias.toLowerCase().includes(q)) ||
-        b.currentShortcut.toLowerCase().includes(q)
-    );
-  }, [bindings, searchQuery]);
+    let list = bindings;
+
+    // Filter by active/inactive chip
+    if (statusFilter === "active") {
+      list = list.filter((b) => b.enabled);
+    } else if (statusFilter === "inactive") {
+      list = list.filter((b) => !b.enabled);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.description.toLowerCase().includes(q) ||
+          (b.alias && b.alias.toLowerCase().includes(q)) ||
+          b.currentShortcut.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [bindings, statusFilter, searchQuery]);
 
   return (
     <div className="w-full h-full flex flex-col bg-background text-foreground font-sans select-none overflow-hidden relative">
@@ -157,7 +191,7 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
-          
+          {/* Header & App Info */}
           <div className="flex flex-col items-center text-center space-y-3">
             <div className="relative group">
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/0 blur-sm group-hover:blur-md transition-all duration-300" />
@@ -217,7 +251,7 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
             {/* Account Status Card */}
             <Card
               size="sm"
-              className="bg-card/70 border-border/60 hover:border-emerald-500/40 transition-colors cursor-pointer group"
+              className="bg-card/70 border-border/60 hover:border-emerald-500/30 transition-colors cursor-pointer group"
               onClick={onOpenSettings}
             >
               <CardContent className="flex items-center justify-between h-full py-3.5">
@@ -227,8 +261,8 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                       variant="outline"
                       className={
                         isAuthenticated
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5"
-                          : "bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1.5"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1.5 font-medium"
+                          : "bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1.5 font-medium"
                       }
                     >
                       <span
@@ -240,40 +274,51 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                       />
                       {isAuthenticated ? "Connected" : "Offline"}
                     </Badge>
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">
-                      (Configure)
-                    </span>
+
+                    {isAuthenticated && (
+                      <Tooltip>
+                        <TooltipTrigger
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenSettings();
+                          }}
+                          className="text-muted-foreground/60 hover:text-foreground transition-colors p-1 rounded hover:bg-muted/40 cursor-pointer"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent>Configure Spotify Connection</TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                   <p className="text-[11px] text-muted-foreground">
                     {isAuthenticated ? "Spotify Web API connected" : "Connect your Spotify account"}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                   {isAuthenticated ? (
                     <>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={onOpenSettings}
-                        className="text-xs h-7"
+                        className="text-xs h-7 px-3 bg-secondary/50 hover:bg-secondary border-border/60 text-foreground font-medium cursor-pointer shadow-2xs"
                       >
                         Settings
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                      <button
+                        type="button"
                         onClick={onLogout}
-                        className="text-xs h-7 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                        className="text-xs text-muted-foreground/70 hover:text-rose-400 px-1 py-1 transition-colors cursor-pointer font-normal underline-offset-4 hover:underline"
                       >
                         Logout
-                      </Button>
+                      </button>
                     </>
                   ) : (
                     <Button
                       size="sm"
                       onClick={onConnect}
-                      className="bg-[#1db954] hover:bg-[#1ed760] text-black font-semibold text-xs h-7 shadow-sm cursor-pointer"
+                      className="bg-[#1db954] hover:bg-[#1ed760] text-black font-semibold text-xs h-7 px-3.5 shadow-sm cursor-pointer"
                     >
                       Connect
                     </Button>
@@ -285,26 +330,83 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
 
           {/* Commands Section */}
           <div className={`space-y-3 pt-1 transition-all ${isMasterDisabled ? "opacity-60" : ""}`}>
-            {/* Section Header & Search */}
+            {/* Toolbar: Title, Badge, Chips Filter & Search */}
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Commands & Shortcuts
-                </h2>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
-                  {filteredBindings.length}
-                </Badge>
+              {/* Left Side: Title, Counter & Filter Chips */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Commands & Shortcuts
+                  </h2>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono bg-muted/60 text-muted-foreground">
+                    {filteredBindings.length}
+                  </Badge>
+                </div>
+
+                {/* Quick Filter Chips */}
+                <div className="flex items-center bg-muted/30 p-0.5 rounded-lg border border-border/40">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("all")}
+                    disabled={isMasterDisabled}
+                    className={cn(
+                      "text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer",
+                      statusFilter === "all"
+                        ? "bg-card text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("active")}
+                    disabled={isMasterDisabled}
+                    className={cn(
+                      "text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer",
+                      statusFilter === "active"
+                        ? "bg-card text-[#1ed760] shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("inactive")}
+                    disabled={isMasterDisabled}
+                    className={cn(
+                      "text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors cursor-pointer",
+                      statusFilter === "inactive"
+                        ? "bg-card text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Inactive
+                  </button>
+                </div>
               </div>
 
+              {/* Right Side: Search Input with Fixed Width */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   disabled={isMasterDisabled}
-                  placeholder="Search commands or keys..."
-                  className="pl-8 h-8 w-56 text-xs bg-card/60"
+                  placeholder="Search commands, keys, aliases..."
+                  className="pl-8 pr-7 h-8 w-[260px] text-xs bg-card/60 border-border/60 focus-visible:border-emerald-500/50"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-sm cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -315,8 +417,8 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                   <TableRow className="border-border/40 hover:bg-transparent">
                     <TableHead className="text-[11px] text-muted-foreground font-semibold h-8 pl-4">Command</TableHead>
                     <TableHead className="text-[11px] text-muted-foreground font-semibold h-8 text-right w-28">Alias</TableHead>
-                    <TableHead className="text-[11px] text-muted-foreground font-semibold h-8 text-right w-36">Shortcut</TableHead>
-                    <TableHead className="text-[11px] text-muted-foreground font-semibold h-8 text-center w-16 pr-4">Active</TableHead>
+                    <TableHead className="text-[11px] text-muted-foreground font-semibold h-8 text-right w-44">Shortcut</TableHead>
+                    <TableHead className="text-[11px] text-muted-foreground font-semibold h-8 text-center w-20 pr-4">Active</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -328,27 +430,62 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                       const badges = hotkeyService.formatShortcutBadges(binding.currentShortcut);
                       const isActive = !isMasterDisabled && binding.enabled;
 
+                      // Contextual status calculation
+                      const normShortcut = binding.currentShortcut ? toTauriShortcut(binding.currentShortcut).toLowerCase() : "";
+                      const conflictsWith = normShortcut ? (conflictMap.get(normShortcut) || []).filter((name) => name !== binding.name) : [];
+                      const hasConflict = binding.enabled && conflictsWith.length > 0;
+                      const isCustomized = binding.currentShortcut.trim() !== binding.defaultShortcut.trim();
+
                       return (
                         <TableRow
                           key={binding.id}
-                          className={`relative border-border/30 transition-colors ${
-                            isRecordingThis ? "z-40" : ""
-                          } ${!isActive ? "opacity-45" : "hover:bg-muted/30"}`}
+                          className={cn(
+                            "group relative border-border/30 transition-colors duration-150",
+                            index % 2 === 1 ? "bg-white/[0.015]" : "bg-transparent",
+                            "hover:bg-white/[0.045]",
+                            isRecordingThis && "bg-emerald-500/[0.06] hover:bg-emerald-500/[0.08] z-40",
+                            !isActive && "opacity-45"
+                          )}
                         >
-                          {/* Command Name & Description */}
+                          {/* Command Name & Description with Contextual Status Dot */}
                           <TableCell className="pl-4 py-2.5">
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <span
-                                className={`w-2 h-2 rounded-full shrink-0 ${
-                                  isActive
-                                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
-                                    : "bg-muted-foreground/30"
-                                }`}
-                              />
+                              <Tooltip>
+                                <TooltipTrigger className="cursor-help shrink-0">
+                                  <span
+                                    className={cn(
+                                      "w-2 h-2 rounded-full block shrink-0 transition-all",
+                                      !binding.enabled || isMasterDisabled
+                                        ? "bg-zinc-800"
+                                        : hasConflict
+                                        ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)] animate-pulse"
+                                        : isCustomized
+                                        ? "bg-[#1ed760] shadow-[0_0_6px_rgba(30,215,96,0.5)]"
+                                        : "bg-zinc-600/50 group-hover:bg-zinc-500/70"
+                                    )}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {!binding.enabled || isMasterDisabled
+                                    ? "Command disabled"
+                                    : hasConflict
+                                    ? `Conflict: Shortcut is also assigned to ${conflictsWith.join(", ")}`
+                                    : isCustomized
+                                    ? `Custom shortcut (Default: ${binding.defaultShortcut})`
+                                    : "Default shortcut active"}
+                                </TooltipContent>
+                              </Tooltip>
                               <div className="min-w-0">
-                                <span className="text-xs font-semibold text-foreground truncate block">
-                                  {binding.name}
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-semibold text-foreground truncate block">
+                                    {binding.name}
+                                  </span>
+                                  {hasConflict && (
+                                    <span className="text-[9px] px-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-medium">
+                                      Conflict
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-[10px] text-muted-foreground truncate block">
                                   {binding.description}
                                 </span>
@@ -357,88 +494,113 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
                           </TableCell>
 
                           {/* Alias */}
-                          <TableCell className="text-right py-2.5">
+                          <TableCell className="text-right py-2.5 w-28">
                             {isEditingAlias ? (
-                              <Input
-                                value={aliasInputValue}
-                                autoFocus
-                                disabled={isMasterDisabled}
-                                onChange={(e) => setAliasInputValue(e.target.value)}
-                                onBlur={() => handleSaveAlias(binding.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveAlias(binding.id);
-                                  if (e.key === "Escape") setEditingAliasId(null);
-                                }}
-                                placeholder="Alias..."
-                                className="h-6 w-24 text-[11px] font-mono ml-auto py-0 px-1.5"
-                              />
+                              <div className="flex justify-end">
+                                <Input
+                                  value={aliasInputValue}
+                                  autoFocus
+                                  disabled={isMasterDisabled}
+                                  onChange={(e) => setAliasInputValue(e.target.value)}
+                                  onBlur={() => handleSaveAlias(binding.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSaveAlias(binding.id);
+                                    if (e.key === "Escape") setEditingAliasId(null);
+                                  }}
+                                  placeholder="Alias..."
+                                  className="h-6 w-24 text-[11px] font-mono text-right py-0 px-2 bg-card border-[#1ed760]/50 focus-visible:ring-1 focus-visible:ring-[#1ed760]/40 rounded"
+                                />
+                              </div>
                             ) : binding.alias ? (
-                              <Button
-                                variant="link"
-                                size="xs"
-                                disabled={isMasterDisabled}
-                                onClick={() =>
-                                  handleStartEditingAlias(binding.id, binding.alias)
-                                }
-                                className="text-[11px] font-mono h-auto p-0 text-primary hover:text-primary/80"
-                              >
-                                {binding.alias}
-                              </Button>
+                              <div className="flex justify-end">
+                                <button
+                                  type="button"
+                                  disabled={isMasterDisabled}
+                                  onClick={() =>
+                                    handleStartEditingAlias(binding.id, binding.alias)
+                                  }
+                                  title="Click to edit alias"
+                                  className="group/alias inline-flex items-center gap-1.5 font-mono text-[10px] text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/20 transition-all cursor-pointer"
+                                >
+                                  <span className="font-semibold">{binding.alias}</span>
+                                  <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/alias:opacity-100 transition-opacity text-emerald-300" />
+                                </button>
+                              </div>
                             ) : (
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                disabled={isMasterDisabled}
-                                onClick={() => handleStartEditingAlias(binding.id, "")}
-                                className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground h-auto p-0"
-                              >
-                                Add Alias
-                              </Button>
+                              <div className="flex justify-end">
+                                <button
+                                  type="button"
+                                  disabled={isMasterDisabled}
+                                  onClick={() => handleStartEditingAlias(binding.id, "")}
+                                  title="Add alias"
+                                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-foreground border border-dashed border-border/40 hover:border-emerald-500/40 hover:bg-muted/30 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
+                                >
+                                  <Plus className="w-2.5 h-2.5" />
+                                  <span>Alias</span>
+                                </button>
+                              </div>
                             )}
                           </TableCell>
 
                           {/* Shortcut */}
-                          <TableCell className="text-right py-2.5">
-                            <div className="flex justify-end">
+                          <TableCell className="text-right py-2.5 w-44">
+                            <div className="flex justify-end items-center min-w-[150px]">
                               {binding.currentShortcut ? (
                                 <Tooltip>
                                   <TooltipTrigger
                                     onClick={() => !isMasterDisabled && setRecordingBinding(binding)}
-                                    className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
+                                    className={cn(
+                                      "group/shortcut inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border transition-all cursor-pointer",
+                                      isRecordingThis
+                                        ? "border-[#1ed760] bg-[#1ed760]/10 ring-2 ring-[#1ed760]/30"
+                                        : "border-border/50 hover:border-[#1ed760]/60 hover:bg-white/[0.04]"
+                                    )}
                                   >
-                                    <KbdGroup>
+                                    <KbdGroup className="gap-1">
                                       {badges.map((b, i) => (
-                                        <Kbd key={i} className="text-[10px] h-5 px-1.5 font-mono shadow-xs">
+                                        <Kbd
+                                          key={i}
+                                          className={cn(
+                                            "text-[10px] h-5 min-w-5 px-1.5 font-mono shadow-xs transition-colors",
+                                            isRecordingThis
+                                              ? "border-[#1ed760] text-[#1ed760]"
+                                              : "group-hover/shortcut:text-foreground group-hover/shortcut:border-border"
+                                          )}
+                                        >
                                           {b}
                                         </Kbd>
                                       ))}
                                     </KbdGroup>
                                   </TooltipTrigger>
-                                  <TooltipContent>Click to rebind shortcut</TooltipContent>
+                                  <TooltipContent>Click to record shortcut</TooltipContent>
                                 </Tooltip>
                               ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
+                                <button
+                                  type="button"
                                   disabled={isMasterDisabled}
                                   onClick={() => setRecordingBinding(binding)}
-                                  className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground h-auto p-0"
+                                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground border border-dashed border-border/50 hover:border-[#1ed760]/60 hover:bg-white/[0.04] px-2 py-0.5 rounded transition-all cursor-pointer"
                                 >
-                                  Record Hotkey
-                                </Button>
+                                  <Plus className="w-2.5 h-2.5" />
+                                  <span>Record Key</span>
+                                </button>
                               )}
                             </div>
                           </TableCell>
 
-                          {/* Enable / Disable Checkbox */}
-                          <TableCell className="text-center pr-4 py-2.5">
-                            <div className="flex justify-center">
-                              <Checkbox
+                          {/* Enable / Disable Switch */}
+                          <TableCell className="text-center pr-4 py-2.5 w-20">
+                            <div className="flex justify-center items-center">
+                              <Switch
+                                size="sm"
                                 checked={isMasterDisabled ? false : binding.enabled}
                                 disabled={isMasterDisabled}
                                 onCheckedChange={() =>
                                   handleToggleEnable(binding.id, binding.enabled)
                                 }
+                                aria-label={`Toggle ${binding.name}`}
+                                className="data-checked:!bg-[#1ed760] data-unchecked:!bg-[#2a2a2a] cursor-pointer"
+                                style={{ "--primary": "#1ED760" } as React.CSSProperties}
                               />
                             </div>
                           </TableCell>
@@ -493,3 +655,4 @@ export const MainSettingsView: React.FC<MainSettingsViewProps> = ({
     </div>
   );
 };
+
