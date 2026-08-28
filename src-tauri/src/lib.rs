@@ -645,12 +645,19 @@ async fn close_main_window(app: AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec![]),
+            Some(vec!["--autostart"]),
         ))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -661,6 +668,15 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            let is_autostart = std::env::args().any(|arg| arg == "--autostart" || arg == "--silent" || arg == "--minimized");
+            if !is_autostart {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+
             let show_item = MenuItem::with_id(app, "show", "Open FlowKey", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit FlowKey", true, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
