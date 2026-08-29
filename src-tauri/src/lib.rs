@@ -518,10 +518,13 @@ fn open_in_spotify(target: String) -> Result<String, String> {
 
 #[cfg(target_os = "windows")]
 fn ensure_window_topmost(window: &tauri::WebviewWindow) {
+    if !window.is_visible().unwrap_or(false) {
+        return;
+    }
     let _ = window.set_always_on_top(true);
     if let Ok(hwnd) = window.hwnd() {
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
         };
         unsafe {
             SetWindowPos(
@@ -531,7 +534,7 @@ fn ensure_window_topmost(window: &tauri::WebviewWindow) {
                 0,
                 0,
                 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
             );
         }
     }
@@ -539,6 +542,9 @@ fn ensure_window_topmost(window: &tauri::WebviewWindow) {
 
 #[cfg(not(target_os = "windows"))]
 fn ensure_window_topmost(window: &tauri::WebviewWindow) {
+    if !window.is_visible().unwrap_or(false) {
+        return;
+    }
     let _ = window.set_always_on_top(true);
 }
 
