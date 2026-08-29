@@ -15,6 +15,11 @@ const isSearchWindow = windowParam === "search" || window.location.hash.includes
 const isToastWindow = windowParam === "toast" || window.location.hash.includes("toast");
 const isPlaylistPickerWindow = windowParam === "playlist_picker" || window.location.hash.includes("playlist_picker");
 
+// Prevent default browser/webview context menu on right click across all windows
+document.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+});
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <TooltipProvider>
