@@ -100,17 +100,29 @@ export const NowPlayingDynamicIsland: React.FC<
     null,
   );
   const [isVisible, setIsVisible] = useState<boolean>(true);
-  const [localProgressMs, setLocalProgressMs] = useState<number>(0);
+  const [displayProgressMs, setDisplayProgressMs] = useState<number>(0);
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "context" | "track">(
     "off",
   );
+  const [optimisticPlaying, setOptimisticPlaying] = useState<boolean | null>(
+    null,
+  );
 
   const lastFetchRef = useRef<number>(0);
   const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
+  const progressAnchorRef = useRef<{
+    baseMs: number;
+    timestamp: number;
+    isPlaying: boolean;
+    durationMs: number;
+  }>({
+    baseMs: 0,
+    timestamp: Date.now(),
+    isPlaying: false,
+    durationMs: 0,
+  });
+  const trackEndedHandledRef = useRef<boolean>(false);
   const islandRef = useRef<HTMLDivElement>(null);
   const expandedTimestampRef = useRef<number>(0);
 
@@ -124,7 +136,7 @@ export const NowPlayingDynamicIsland: React.FC<
 
   const fetchState = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastFetchRef.current < 1500) return;
+    if (!force && now - lastFetchRef.current < 2000) return;
     lastFetchRef.current = now;
 
     try {
@@ -137,7 +149,19 @@ export const NowPlayingDynamicIsland: React.FC<
             spotifyHasData = true;
             spotifyPlaying = Boolean(res.data.is_playing);
             setPlaybackState(res.data);
-            setLocalProgressMs(res.data.progress_ms || 0);
+            setOptimisticPlaying(null);
+            trackEndedHandledRef.current = false;
+
+            const baseProg = res.data.progress_ms || 0;
+            const dur = res.data.item.duration_ms || 0;
+            progressAnchorRef.current = {
+              baseMs: baseProg,
+              timestamp: Date.now(),
+              isPlaying: spotifyPlaying,
+              durationMs: dur,
+            };
+            setDisplayProgressMs(baseProg);
+
             if (typeof res.data.shuffle_state === "boolean") {
               setIsShuffle(res.data.shuffle_state);
             }
@@ -148,7 +172,7 @@ export const NowPlayingDynamicIsland: React.FC<
             }
             const saved: SavedSpotifyState = {
               item: res.data.item,
-              progress_ms: res.data.progress_ms || 0,
+              progress_ms: baseProg,
               shuffle_state: res.data.shuffle_state,
               repeat_state: res.data.repeat_state,
               timestamp: Date.now(),
@@ -206,31 +230,6 @@ export const NowPlayingDynamicIsland: React.FC<
     } catch {}
   }, [savedSpotify?.item]);
 
-  useEffect(() => {
-    fetchState(true);
-    const interval = setInterval(() => fetchState(), 2500);
-
-    let unlistenTrigger: (() => void) | undefined;
-    try {
-      const appWindow = getCurrentWebviewWindow();
-      appWindow
-        .listen("overlay_trigger", () => {
-          setIsVisible(true);
-          invoke("ensure_overlay_topmost").catch(() => {});
-          fetchState(true);
-        })
-        .then((fn) => {
-          unlistenTrigger = fn;
-        });
-    } catch {}
-
-    return () => {
-      clearInterval(interval);
-      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
-      unlistenTrigger?.();
-    };
-  }, [fetchState]);
-
   const spotifyTrack: SpotifyTrack | undefined =
     playbackState?.item || savedSpotify?.item || undefined;
   const spotifyHasTrack = Boolean(spotifyTrack);
@@ -266,25 +265,71 @@ export const NowPlayingDynamicIsland: React.FC<
   const track: SpotifyTrack | undefined = isSpotifyActive
     ? spotifyTrack
     : undefined;
-  const isPlaying = isSpotifyActive
+  const baseIsPlaying = isSpotifyActive
     ? spotifyIsPlaying
     : externalIsPlaying || externalHasTrack;
+  const isPlaying =
+    optimisticPlaying !== null ? optimisticPlaying : baseIsPlaying;
   const durationMs = isSpotifyActive ? track?.duration_ms || 0 : 0;
 
+  // Client-side progress bar extrapolation (150ms interval, 0 network requests)
   useEffect(() => {
-    if (isPlaying && durationMs > 0) {
-      progressIntervalRef.current = setInterval(() => {
-        setLocalProgressMs((prev) => Math.min(prev + 1000, durationMs));
-      }, 1000);
-    } else {
-      if (progressIntervalRef.current)
-        clearInterval(progressIntervalRef.current);
-    }
+    const timer = setInterval(() => {
+      const { baseMs, timestamp, isPlaying: anchorPlaying, durationMs: anchorDur } =
+        progressAnchorRef.current;
+      if (anchorPlaying) {
+        const elapsed = Date.now() - timestamp;
+        const current =
+          anchorDur > 0 ? Math.min(anchorDur, baseMs + elapsed) : baseMs + elapsed;
+        setDisplayProgressMs(current);
+
+        // Catch track transition when calculated end time is reached
+        if (
+          anchorDur > 0 &&
+          current >= anchorDur &&
+          !trackEndedHandledRef.current
+        ) {
+          trackEndedHandledRef.current = true;
+          setTimeout(() => {
+            fetchState(true);
+          }, 800);
+        }
+      } else {
+        setDisplayProgressMs(baseMs);
+      }
+    }, 150);
+
+    return () => clearInterval(timer);
+  }, [fetchState]);
+
+  // Reconciliation polling (25s when playing, 60s when paused) + event triggers
+  useEffect(() => {
+    fetchState(true);
+    const reconciliationIntervalMs = isPlaying ? 25000 : 60000;
+    const interval = setInterval(() => {
+      fetchState(false);
+    }, reconciliationIntervalMs);
+
+    let unlistenTrigger: (() => void) | undefined;
+    try {
+      const appWindow = getCurrentWebviewWindow();
+      appWindow
+        .listen("overlay_trigger", () => {
+          setIsVisible(true);
+          invoke("ensure_overlay_topmost").catch(() => {});
+          fetchState(true);
+        })
+        .then((fn) => {
+          unlistenTrigger = fn;
+        });
+    } catch {}
+
     return () => {
-      if (progressIntervalRef.current)
-        clearInterval(progressIntervalRef.current);
+      clearInterval(interval);
+      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+      unlistenTrigger?.();
     };
-  }, [isPlaying, durationMs]);
+  }, [fetchState, isPlaying]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -380,54 +425,82 @@ export const NowPlayingDynamicIsland: React.FC<
 
   const handleTogglePlay = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    const nextPlaying = !isPlaying;
+    setOptimisticPlaying(nextPlaying);
+    progressAnchorRef.current = {
+      baseMs: displayProgressMs,
+      timestamp: Date.now(),
+      isPlaying: nextPlaying,
+      durationMs,
+    };
+    setDisplayProgressMs(displayProgressMs);
+
     try {
       if (isSpotifyActive && spotifyService.isAuthenticated()) {
         const fallbackUri = spotifyTrack?.uri;
-        const fallbackPos = localProgressMs || savedSpotify?.progress_ms || 0;
-        await spotifyService.togglePlay(fallbackUri, fallbackPos);
-        setTimeout(() => fetchState(true), 300);
+        const fallbackPos = displayProgressMs || savedSpotify?.progress_ms || 0;
+        spotifyService
+          .togglePlay(!nextPlaying, fallbackUri, fallbackPos)
+          .catch((err) => {
+            console.warn("Optimistic togglePlay error:", err);
+          });
         return;
       }
       await invoke("native_play_pause");
-      setTimeout(() => fetchState(true), 250);
     } catch (err) {
       console.error("Play/Pause error:", err);
-      await invoke("native_play_pause").catch(() => {});
-      setTimeout(() => fetchState(true), 250);
     }
   };
 
   const handleNext = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    progressAnchorRef.current = {
+      baseMs: 0,
+      timestamp: Date.now(),
+      isPlaying: true,
+      durationMs: 0,
+    };
+    setDisplayProgressMs(0);
+    trackEndedHandledRef.current = false;
+
     try {
       if (isSpotifyActive && spotifyService.isAuthenticated()) {
-        await spotifyService.nextTrack();
-        setTimeout(() => fetchState(true), 350);
+        spotifyService.nextTrack().catch((err) => {
+          console.warn("Next track error:", err);
+        });
+        setTimeout(() => fetchState(true), 450);
         return;
       }
       await invoke("native_next_track");
-      setTimeout(() => fetchState(true), 350);
+      setTimeout(() => fetchState(true), 450);
     } catch (err) {
       console.error("Next error:", err);
-      await invoke("native_next_track").catch(() => {});
-      setTimeout(() => fetchState(true), 350);
     }
   };
 
   const handlePrev = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    progressAnchorRef.current = {
+      baseMs: 0,
+      timestamp: Date.now(),
+      isPlaying: true,
+      durationMs: 0,
+    };
+    setDisplayProgressMs(0);
+    trackEndedHandledRef.current = false;
+
     try {
       if (isSpotifyActive && spotifyService.isAuthenticated()) {
-        await spotifyService.previousTrack();
-        setTimeout(() => fetchState(true), 350);
+        spotifyService.previousTrack().catch((err) => {
+          console.warn("Prev track error:", err);
+        });
+        setTimeout(() => fetchState(true), 450);
         return;
       }
       await invoke("native_prev_track");
-      setTimeout(() => fetchState(true), 350);
+      setTimeout(() => fetchState(true), 450);
     } catch (err) {
       console.error("Prev error:", err);
-      await invoke("native_prev_track").catch(() => {});
-      setTimeout(() => fetchState(true), 350);
     }
   };
 
@@ -440,11 +513,21 @@ export const NowPlayingDynamicIsland: React.FC<
       Math.min(1, (e.clientX - rect.left) / rect.width),
     );
     const targetMs = Math.floor(ratio * durationMs);
-    setLocalProgressMs(targetMs);
-    try {
-      await spotifyService.seekPosition(targetMs);
-    } catch (err) {
-      console.error("Seek error:", err);
+
+    progressAnchorRef.current = {
+      baseMs: targetMs,
+      timestamp: Date.now(),
+      isPlaying,
+      durationMs,
+    };
+    setDisplayProgressMs(targetMs);
+
+    if (isSpotifyActive && spotifyService.isAuthenticated()) {
+      try {
+        await spotifyService.seekPosition(targetMs);
+      } catch (err) {
+        console.error("Seek error:", err);
+      }
     }
   };
 
@@ -455,7 +538,6 @@ export const NowPlayingDynamicIsland: React.FC<
     setIsShuffle(next);
     try {
       await spotifyService.setShuffle(next);
-      setTimeout(() => fetchState(true), 300);
     } catch (err) {
       console.warn("Shuffle error:", err);
     }
@@ -473,7 +555,6 @@ export const NowPlayingDynamicIsland: React.FC<
     setRepeatMode(nextMode);
     try {
       await spotifyService.setRepeat(nextMode);
-      setTimeout(() => fetchState(true), 300);
     } catch (err) {
       console.warn("Repeat error:", err);
     }
@@ -516,7 +597,7 @@ export const NowPlayingDynamicIsland: React.FC<
 
   const progressPercent =
     durationMs > 0
-      ? Math.min(100, (localProgressMs / durationMs) * 100)
+      ? Math.min(100, (displayProgressMs / durationMs) * 100)
       : isPlaying
         ? 100
         : 0;
@@ -691,7 +772,7 @@ export const NowPlayingDynamicIsland: React.FC<
 
             <div className="w-full flex items-center gap-2.5">
               <span className="text-[10px] font-mono font-medium text-[#8e8e93] tracking-tight shrink-0">
-                {formatTime(localProgressMs)}
+                {formatTime(displayProgressMs)}
               </span>
 
               <div

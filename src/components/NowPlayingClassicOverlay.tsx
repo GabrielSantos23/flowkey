@@ -162,15 +162,23 @@ export const NowPlayingClassicOverlay: React.FC = () => {
 
   useEffect(() => {
     fetchState(true);
-    const interval = setInterval(() => fetchState(), 2500);
+    const recInterval = playbackState?.is_playing ? 25000 : 60000;
+    const interval = setInterval(() => fetchState(false), recInterval);
     return () => clearInterval(interval);
-  }, [fetchState]);
+  }, [fetchState, playbackState?.is_playing]);
 
   const handleTogglePlay = async () => {
     if (!playPauseShortcut.enabled) return;
+    const currentPlaying = playbackState?.is_playing ?? false;
+    setPlaybackState((prev) =>
+      prev ? { ...prev, is_playing: !currentPlaying } : prev,
+    );
     try {
+      if (spotifyService.isAuthenticated()) {
+        spotifyService.togglePlay(currentPlaying).catch(() => {});
+        return;
+      }
       await invoke("native_play_pause");
-      setTimeout(() => fetchState(true), 250);
     } catch (e) {
       console.error("Play/Pause error:", e);
     }
@@ -179,8 +187,13 @@ export const NowPlayingClassicOverlay: React.FC = () => {
   const handleNext = async () => {
     if (!nextShortcut.enabled) return;
     try {
+      if (spotifyService.isAuthenticated()) {
+        spotifyService.nextTrack().catch(() => {});
+        setTimeout(() => fetchState(true), 450);
+        return;
+      }
       await invoke("native_next_track");
-      setTimeout(() => fetchState(true), 350);
+      setTimeout(() => fetchState(true), 450);
     } catch (e) {
       console.error("Next track error:", e);
     }
@@ -189,8 +202,13 @@ export const NowPlayingClassicOverlay: React.FC = () => {
   const handlePrev = async () => {
     if (!prevShortcut.enabled) return;
     try {
+      if (spotifyService.isAuthenticated()) {
+        spotifyService.previousTrack().catch(() => {});
+        setTimeout(() => fetchState(true), 450);
+        return;
+      }
       await invoke("native_prev_track");
-      setTimeout(() => fetchState(true), 350);
+      setTimeout(() => fetchState(true), 450);
     } catch (e) {
       console.error("Prev track error:", e);
     }

@@ -140,6 +140,30 @@ class SpotifyService {
   private tokenExpiry: number = 0;
   private clientCredentialsToken: string | null = null;
   private likedCache = new Map<string, { isLiked: boolean; timestamp: number }>();
+  private rateLimitUntil: number = 0;
+  private lastPlaybackState: SpotifyPlaybackState | null = null;
+
+  public isRateLimited(): boolean {
+    return Date.now() < this.rateLimitUntil;
+  }
+
+  public getRateLimitRemainingSec(): number {
+    return Math.max(0, Math.ceil((this.rateLimitUntil - Date.now()) / 1000));
+  }
+
+  public handleRateLimitResponse(res: Response) {
+    if (res.status === 429) {
+      const retryHeader = res.headers.get("Retry-After");
+      const retrySec = retryHeader ? parseInt(retryHeader, 10) : 5;
+      const waitMs = (isNaN(retrySec) ? 5 : Math.max(1, retrySec)) * 1000;
+      this.rateLimitUntil = Date.now() + waitMs;
+      console.warn(`[Spotify API] 429 Rate limited. Backing off for ${waitMs / 1000}s until ${new Date(this.rateLimitUntil).toLocaleTimeString()}`);
+    }
+  }
+
+  public getLastKnownPlaybackState(): SpotifyPlaybackState | null {
+    return this.lastPlaybackState;
+  }
 
   constructor() {
     this.accessToken = localStorage.getItem(ACCESS_TOKEN_KEY) || null;
@@ -420,6 +444,18 @@ class SpotifyService {
     status: number;
     latencyMs: number;
   }> {
+    if (this.isRateLimited()) {
+      return {
+        data: this.lastPlaybackState || {
+          is_playing: false,
+          item: null,
+          progress_ms: 0,
+        },
+        status: 429,
+        latencyMs: 0,
+      };
+    }
+
     const token = await this.ensureValidToken();
     if (!token) {
       throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
@@ -442,9 +478,9 @@ class SpotifyService {
     const latencyMs = Math.round(performance.now() - start);
 
     if (res.status === 429) {
-      console.warn("Spotify API rate limit reached (429). Will not spam fallbacks.");
+      this.handleRateLimitResponse(res);
       return {
-        data: {
+        data: this.lastPlaybackState || {
           is_playing: false,
           item: null,
           progress_ms: 0,
@@ -461,89 +497,48 @@ class SpotifyService {
           if (data.item.id) {
             this.lastTrackId = data.item.id;
           }
+          this.lastPlaybackState = data;
           return { data, status: 200, latencyMs };
         }
-      } catch {
-        
-      }
+      } catch {}
     }
 
-    try {
-      const curRes = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (curRes.ok && curRes.status === 200) {
-        const curData = await curRes.json();
-        if (curData && curData.item) {
-          if (curData.item.id) {
-            this.lastTrackId = curData.item.id;
-          }
-          return {
-            data: {
-              is_playing: curData.is_playing ?? false,
-              item: curData.item,
-              progress_ms: curData.progress_ms ?? 0,
-              device: undefined,
-            },
-            status: 200,
-            latencyMs: Math.round(performance.now() - start),
-          };
-        }
-      }
-    } catch {
-      
+    if (res.status === 204) {
+      const emptyData = {
+        is_playing: false,
+        item: null,
+        progress_ms: 0,
+      };
+      this.lastPlaybackState = emptyData;
+      return {
+        data: emptyData,
+        status: 204,
+        latencyMs,
+      };
     }
 
     return {
-      data: {
+      data: this.lastPlaybackState || {
         is_playing: false,
         item: null,
         progress_ms: 0,
       },
-      status: res.status === 204 ? 204 : 200,
+      status: res.status,
       latencyMs,
     };
   }
 
   public async fetchNewTrackAfterSkip(
-    previousTrackId?: string | null,
-    maxWaitMs = 2800
+    _previousTrackId?: string | null,
+    delayMs = 450
   ): Promise<SpotifyTrack | null> {
-    const token = await this.ensureValidToken();
-    if (!token) return null;
-
-    const startTime = Date.now();
-    const delays = [200, 300, 400, 500, 650, 800];
-    let idx = 0;
-
-    while (Date.now() - startTime < maxWaitMs) {
-      const delay = delays[Math.min(idx++, delays.length - 1)];
-      await new Promise((r) => setTimeout(r, delay));
-
-      try {
-        const res = await this.getNowPlaying();
-        const item = res?.data?.item;
-        if (item) {
-          
-          if (previousTrackId && item.id === previousTrackId) {
-            continue;
-          }
-          this.lastTrackId = item.id;
-          return item;
-        }
-      } catch (e) {
-        console.warn("Polling error after skip:", e);
-      }
-    }
-
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
     try {
       const res = await this.getNowPlaying();
-      if (res?.data?.item) {
-        this.lastTrackId = res.data.item.id;
-        return res.data.item;
-      }
-    } catch {}
-    return null;
+      return res.data.item;
+    } catch {
+      return null;
+    }
   }
 
   public async setVolume(
@@ -601,6 +596,10 @@ class SpotifyService {
         body,
       });
 
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
+
       // If no active device (404) and we have a URI, try transfer/play on first available device
       if (res.status === 404 && trackUri) {
         try {
@@ -625,6 +624,10 @@ class SpotifyService {
         } catch {}
       }
 
+      if (this.lastPlaybackState) {
+        this.lastPlaybackState.is_playing = true;
+      }
+
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
@@ -644,6 +647,15 @@ class SpotifyService {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
+
+      if (this.lastPlaybackState) {
+        this.lastPlaybackState.is_playing = false;
+      }
+
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
@@ -652,9 +664,16 @@ class SpotifyService {
     }
   }
 
-  public async togglePlay(fallbackUri?: string, fallbackPositionMs?: number): Promise<{ status: number; isPlaying: boolean }> {
-    const current = await this.getNowPlaying();
-    const isPlaying = current.data?.is_playing ?? false;
+  public async togglePlay(
+    currentlyPlaying?: boolean,
+    fallbackUri?: string,
+    fallbackPositionMs?: number
+  ): Promise<{ status: number; isPlaying: boolean }> {
+    const isPlaying =
+      currentlyPlaying !== undefined
+        ? currentlyPlaying
+        : this.lastPlaybackState?.is_playing ?? false;
+
     if (isPlaying) {
       const res = await this.pause();
       return { status: res.status, isPlaying: false };
@@ -675,6 +694,11 @@ class SpotifyService {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
+
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
@@ -694,6 +718,11 @@ class SpotifyService {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
+
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
@@ -713,6 +742,11 @@ class SpotifyService {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
+
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
@@ -739,6 +773,9 @@ class SpotifyService {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
@@ -763,6 +800,9 @@ class SpotifyService {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+      }
       const latencyMs = Math.round(performance.now() - start);
       return { status: res.status, latencyMs };
     } catch (e) {
