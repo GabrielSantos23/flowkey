@@ -216,6 +216,7 @@ export const NowPlayingDynamicIsland: React.FC<
       appWindow
         .listen("overlay_trigger", () => {
           setIsVisible(true);
+          invoke("ensure_overlay_topmost").catch(() => {});
           fetchState(true);
         })
         .then((fn) => {

@@ -516,15 +516,30 @@ fn open_in_spotify(target: String) -> Result<String, String> {
     }
 }
 
-fn position_overlay_top_center(window: &tauri::WebviewWindow) {
-    if let Ok(Some(monitor)) = window.current_monitor() {
-        let screen_size = monitor.size();
-        let scale_factor = monitor.scale_factor();
-        let overlay_width = (185.0 * scale_factor) as i32;
-        let x = (screen_size.width as i32 - overlay_width) / 2;
-        let y = 0;
-        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+#[cfg(target_os = "windows")]
+fn ensure_window_topmost(window: &tauri::WebviewWindow) {
+    let _ = window.set_always_on_top(true);
+    if let Ok(hwnd) = window.hwnd() {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+        };
+        unsafe {
+            SetWindowPos(
+                hwnd.0 as _,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            );
+        }
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn ensure_window_topmost(window: &tauri::WebviewWindow) {
+    let _ = window.set_always_on_top(true);
 }
 
 #[command]
@@ -539,6 +554,7 @@ async fn toggle_now_playing_overlay(app: AppHandle) -> Result<(), String> {
             }
             let _ = window.show();
             let _ = window.set_focus();
+            ensure_window_topmost(&window);
             let _ = window.emit("overlay_trigger", ());
         }
         Ok(())
@@ -567,6 +583,7 @@ async fn resize_now_playing_overlay(app: AppHandle, expanded: bool) -> Result<()
                 height: win_height as u32,
             }));
             let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            ensure_window_topmost(&window);
             if expanded {
                 let _ = window.set_focus();
             }
@@ -594,6 +611,7 @@ async fn set_overlay_classic_mode(app: AppHandle) -> Result<(), String> {
                 height: win_height as u32,
             }));
             let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            ensure_window_topmost(&window);
             let _ = window.set_focus();
         } else {
             let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
@@ -601,6 +619,7 @@ async fn set_overlay_classic_mode(app: AppHandle) -> Result<(), String> {
                 height: 400.0,
             }));
             let _ = window.center();
+            ensure_window_topmost(&window);
             let _ = window.set_focus();
         }
         Ok(())
@@ -617,7 +636,18 @@ async fn show_now_playing_overlay(app: AppHandle) -> Result<(), String> {
         }
         let _ = window.show();
         let _ = window.set_focus();
+        ensure_window_topmost(&window);
         let _ = window.emit("overlay_trigger", ());
+        Ok(())
+    } else {
+        Err("Overlay window not found".into())
+    }
+}
+
+#[command]
+async fn ensure_overlay_topmost(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("overlay") {
+        ensure_window_topmost(&window);
         Ok(())
     } else {
         Err("Overlay window not found".into())
@@ -923,6 +953,7 @@ pub fn run() {
             hide_now_playing_overlay,
             resize_now_playing_overlay,
             set_overlay_classic_mode,
+            ensure_overlay_topmost,
             toggle_search_overlay,
             show_search_overlay,
             hide_search_overlay,
