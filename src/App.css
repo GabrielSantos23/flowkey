@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@600;700;800;900&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -192,4 +193,13 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }

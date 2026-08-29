@@ -21,6 +21,18 @@ import {
   DialogTitle,
   DialogDescription,
 } from "./ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  getStoredOverlayStyle,
+  setStoredOverlayStyle,
+  OverlayStyle,
+} from "../services/overlaySettings";
 import { autostartService } from "../services/autostartService";
 import { updaterService, UpdateInfo } from "../services/updaterService";
 
@@ -55,6 +67,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [updateErrorMessage, setUpdateErrorMessage] = useState<string | null>(
     null,
   );
+  const [overlayStyle, setOverlayStyle] = useState<OverlayStyle>(() =>
+    getStoredOverlayStyle()
+  );
+
+  useEffect(() => {
+    const handleStyleChange = (e: any) => {
+      const newStyle = e?.detail?.style || getStoredOverlayStyle();
+      setOverlayStyle(newStyle);
+    };
+
+    window.addEventListener("flowkey_overlay_style_changed", handleStyleChange);
+    return () => {
+      window.removeEventListener(
+        "flowkey_overlay_style_changed",
+        handleStyleChange
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -260,6 +290,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     aria-label="Toggle Start with System"
                     style={{ "--primary": "#1ED760" } as React.CSSProperties}
                   />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5">
+              <span>Now Playing Overlay Style</span>
+            </h3>
+
+            <Card className="bg-card/60 border-border/50">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground text-xs">
+                      Overlay Window Interface
+                    </span>
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] py-0 px-1.5 bg-emerald-500/15 text-emerald-400"
+                    >
+                      {overlayStyle === "island" ? "Top Notch" : "Center Modal"}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Select your preferred interface for the Now Playing floating popup.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Select
+                    value={overlayStyle}
+                    onValueChange={(val) => {
+                      if (val) {
+                        const styleVal = val as OverlayStyle;
+                        setOverlayStyle(styleVal);
+                        setStoredOverlayStyle(styleVal);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[195px] h-7 text-xs bg-secondary/50 border-border/60">
+                      <SelectValue placeholder="Select Overlay Style" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border border-border/60 text-xs">
+                      <SelectItem value="island">
+                        <span className="flex items-center gap-2">
+                          <span>🏝️</span>
+                          <span>Dynamic Island (Top Edge)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="classic">
+                        <span className="flex items-center gap-2">
+                          <span>🪟</span>
+                          <span>Floating Window (Center)</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>

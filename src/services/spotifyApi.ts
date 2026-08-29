@@ -578,6 +578,130 @@ class SpotifyService {
     return { status: res.status, latencyMs, volume: clamped };
   }
 
+  public async play(trackUri?: string, positionMs?: number): Promise<{ status: number; latencyMs: number }> {
+    const token = await this.ensureValidToken();
+    if (!token) {
+      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
+    }
+    const start = performance.now();
+    try {
+      const body = trackUri
+        ? JSON.stringify({
+            uris: [trackUri],
+            position_ms: positionMs ? Math.floor(positionMs) : 0,
+          })
+        : undefined;
+
+      const res = await fetch("https://api.spotify.com/v1/me/player/play", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(body ? { "Content-Type": "application/json" } : {}),
+        },
+        body,
+      });
+
+      // If no active device (404) and we have a URI, try transfer/play on first available device
+      if (res.status === 404 && trackUri) {
+        try {
+          const devRes = await fetch("https://api.spotify.com/v1/me/player/devices", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const devData = await devRes.json();
+          const firstDev = devData.devices?.[0];
+          if (firstDev?.id) {
+            await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${firstDev.id}`, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                uris: [trackUri],
+                position_ms: positionMs ? Math.floor(positionMs) : 0,
+              }),
+            });
+          }
+        } catch {}
+      }
+
+      const latencyMs = Math.round(performance.now() - start);
+      return { status: res.status, latencyMs };
+    } catch (e) {
+      console.warn("Spotify Play error:", e);
+      return { status: 500, latencyMs: Math.round(performance.now() - start) };
+    }
+  }
+
+  public async pause(): Promise<{ status: number; latencyMs: number }> {
+    const token = await this.ensureValidToken();
+    if (!token) {
+      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
+    }
+    const start = performance.now();
+    try {
+      const res = await fetch("https://api.spotify.com/v1/me/player/pause", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const latencyMs = Math.round(performance.now() - start);
+      return { status: res.status, latencyMs };
+    } catch (e) {
+      console.warn("Spotify Pause error:", e);
+      return { status: 500, latencyMs: Math.round(performance.now() - start) };
+    }
+  }
+
+  public async togglePlay(fallbackUri?: string, fallbackPositionMs?: number): Promise<{ status: number; isPlaying: boolean }> {
+    const current = await this.getNowPlaying();
+    const isPlaying = current.data?.is_playing ?? false;
+    if (isPlaying) {
+      const res = await this.pause();
+      return { status: res.status, isPlaying: false };
+    } else {
+      const res = await this.play(fallbackUri, fallbackPositionMs);
+      return { status: res.status, isPlaying: true };
+    }
+  }
+
+  public async nextTrack(): Promise<{ status: number; latencyMs: number }> {
+    const token = await this.ensureValidToken();
+    if (!token) {
+      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
+    }
+    const start = performance.now();
+    try {
+      const res = await fetch("https://api.spotify.com/v1/me/player/next", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const latencyMs = Math.round(performance.now() - start);
+      return { status: res.status, latencyMs };
+    } catch (e) {
+      console.warn("Spotify Next Track error:", e);
+      return { status: 500, latencyMs: Math.round(performance.now() - start) };
+    }
+  }
+
+  public async previousTrack(): Promise<{ status: number; latencyMs: number }> {
+    const token = await this.ensureValidToken();
+    if (!token) {
+      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
+    }
+    const start = performance.now();
+    try {
+      const res = await fetch("https://api.spotify.com/v1/me/player/previous", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const latencyMs = Math.round(performance.now() - start);
+      return { status: res.status, latencyMs };
+    } catch (e) {
+      console.warn("Spotify Previous Track error:", e);
+      return { status: 500, latencyMs: Math.round(performance.now() - start) };
+    }
+  }
+
   public async setShuffle(state: boolean): Promise<{ status: number; latencyMs: number }> {
     const token = await this.ensureValidToken();
     if (!token) {
@@ -593,6 +717,56 @@ class SpotifyService {
       return { status: res.status, latencyMs };
     } catch (e) {
       console.warn("Set shuffle error:", e);
+      return { status: 500, latencyMs: Math.round(performance.now() - start) };
+    }
+  }
+
+  public async setRepeat(
+    state: "off" | "context" | "track" | boolean
+  ): Promise<{ status: number; latencyMs: number }> {
+    const token = await this.ensureValidToken();
+    if (!token) {
+      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account to adjust repeat.");
+    }
+    const repeatParam =
+      typeof state === "boolean" ? (state ? "context" : "off") : state;
+    const start = performance.now();
+    try {
+      const res = await fetch(
+        `https://api.spotify.com/v1/me/player/repeat?state=${repeatParam}`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const latencyMs = Math.round(performance.now() - start);
+      return { status: res.status, latencyMs };
+    } catch (e) {
+      console.warn("Set repeat error:", e);
+      return { status: 500, latencyMs: Math.round(performance.now() - start) };
+    }
+  }
+
+  public async seekPosition(
+    positionMs: number
+  ): Promise<{ status: number; latencyMs: number }> {
+    const token = await this.ensureValidToken();
+    if (!token) {
+      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account to seek.");
+    }
+    const start = performance.now();
+    try {
+      const res = await fetch(
+        `https://api.spotify.com/v1/me/player/seek?position_ms=${Math.floor(positionMs)}`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const latencyMs = Math.round(performance.now() - start);
+      return { status: res.status, latencyMs };
+    } catch (e) {
+      console.warn("Seek error:", e);
       return { status: 500, latencyMs: Math.round(performance.now() - start) };
     }
   }

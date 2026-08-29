@@ -55,20 +55,99 @@ pub struct NativeMediaMetadata {
     pub artist: String,
     pub album: String,
     pub album_art: String,
+    pub source_app: String,
+    pub is_playing: bool,
 }
 
 #[cfg(target_os = "windows")]
 fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
-    use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+    use windows::Media::Control::{
+        GlobalSystemMediaTransportControlsSession,
+        GlobalSystemMediaTransportControlsSessionManager,
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus,
+    };
 
     let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .map_err(|e| e.to_string())?
         .get()
         .map_err(|e| e.to_string())?;
 
-    let session = manager
-        .GetCurrentSession()
-        .map_err(|e| e.to_string())?;
+    let mut candidate_sessions: Vec<GlobalSystemMediaTransportControlsSession> = Vec::new();
+
+    if let Ok(current) = manager.GetCurrentSession() {
+        candidate_sessions.push(current);
+    }
+
+    if let Ok(sessions) = manager.GetSessions() {
+        for s in sessions {
+            candidate_sessions.push(s);
+        }
+    }
+
+    let mut best_session: Option<GlobalSystemMediaTransportControlsSession> = None;
+    let mut fallback_session: Option<GlobalSystemMediaTransportControlsSession> = None;
+
+    for s in candidate_sessions {
+        if let Ok(pb) = s.GetPlaybackInfo() {
+            if let Ok(status) = pb.PlaybackStatus() {
+                if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+                    best_session = Some(s);
+                    break;
+                }
+            }
+        }
+        if fallback_session.is_none() {
+            fallback_session = Some(s);
+        }
+    }
+
+    let session = match best_session.or(fallback_session) {
+        Some(s) => s,
+        None => return Err("No GSMTC session found".into()),
+    };
+
+    let raw_source = session
+        .SourceAppUserModelId()
+        .map(|h| h.to_string())
+        .unwrap_or_default();
+
+    let raw_lower = raw_source.to_lowercase();
+    let source_app = if raw_lower.contains("spotify") {
+        "Spotify".to_string()
+    } else if raw_lower.contains("chrome") {
+        "Chrome".to_string()
+    } else if raw_lower.contains("edge") {
+        "Edge".to_string()
+    } else if raw_lower.contains("firefox") {
+        "Firefox".to_string()
+    } else if raw_lower.contains("brave") {
+        "Brave".to_string()
+    } else if raw_lower.contains("applemusic") || raw_lower.contains("apple music") || raw_lower.contains("itunes") {
+        "Apple Music".to_string()
+    } else if raw_lower.contains("tidal") {
+        "Tidal".to_string()
+    } else if raw_lower.contains("deezer") {
+        "Deezer".to_string()
+    } else if raw_lower.contains("vlc") {
+        "VLC".to_string()
+    } else if raw_lower.contains("youtube") {
+        "YouTube".to_string()
+    } else if raw_lower.contains("discord") {
+        "Discord".to_string()
+    } else if !raw_source.is_empty() {
+        let clean = raw_source.replace(".exe", "");
+        clean.split('!').last().unwrap_or(&clean).to_string()
+    } else {
+        "Media Player".to_string()
+    };
+
+    let is_playing = if let Ok(pb) = session.GetPlaybackInfo() {
+        pb.PlaybackStatus()
+            .map(|s| s == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
+            .unwrap_or(false)
+    } else {
+        false
+    };
 
     let properties = session
         .TryGetMediaPropertiesAsync()
@@ -112,6 +191,8 @@ fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
         artist,
         album,
         album_art,
+        source_app,
+        is_playing,
     })
 }
 
@@ -154,6 +235,8 @@ fn get_spotify_window_title_info() -> Result<NativeMediaMetadata, String> {
                 artist: artist.trim().to_string(),
                 album: String::new(),
                 album_art: String::new(),
+                source_app: "Spotify".to_string(),
+                is_playing: true,
             });
         }
     }
@@ -433,6 +516,17 @@ fn open_in_spotify(target: String) -> Result<String, String> {
     }
 }
 
+fn position_overlay_top_center(window: &tauri::WebviewWindow) {
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let screen_size = monitor.size();
+        let scale_factor = monitor.scale_factor();
+        let overlay_width = (185.0 * scale_factor) as i32;
+        let x = (screen_size.width as i32 - overlay_width) / 2;
+        let y = 0;
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+    }
+}
+
 #[command]
 async fn toggle_now_playing_overlay(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("overlay") {
@@ -443,10 +537,71 @@ async fn toggle_now_playing_overlay(app: AppHandle) -> Result<(), String> {
             if let Some(search) = app.get_webview_window("search") {
                 let _ = search.hide();
             }
-            let _ = window.center();
             let _ = window.show();
             let _ = window.set_focus();
             let _ = window.emit("overlay_trigger", ());
+        }
+        Ok(())
+    } else {
+        Err("Overlay window not found".into())
+    }
+}
+
+#[command]
+async fn resize_now_playing_overlay(app: AppHandle, expanded: bool) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("overlay") {
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let screen_size = monitor.size();
+            let monitor_pos = monitor.position();
+            let scale_factor = monitor.scale_factor();
+            let target_w = if expanded { 350.0 } else { 185.0 };
+            let target_h = if expanded { 180.0 } else { 42.0 };
+
+            let win_width = (target_w * scale_factor) as i32;
+            let win_height = (target_h * scale_factor) as i32;
+            let x = monitor_pos.x + (screen_size.width as i32 - win_width) / 2;
+            let y = monitor_pos.y;
+
+            let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                width: win_width as u32,
+                height: win_height as u32,
+            }));
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            if expanded {
+                let _ = window.set_focus();
+            }
+        }
+        Ok(())
+    } else {
+        Err("Overlay window not found".into())
+    }
+}
+
+#[command]
+async fn set_overlay_classic_mode(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("overlay") {
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let screen_size = monitor.size();
+            let monitor_pos = monitor.position();
+            let scale_factor = monitor.scale_factor();
+            let win_width = (640.0 * scale_factor) as i32;
+            let win_height = (400.0 * scale_factor) as i32;
+            let x = monitor_pos.x + (screen_size.width as i32 - win_width) / 2;
+            let y = monitor_pos.y + (screen_size.height as i32 - win_height) / 2;
+
+            let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                width: win_width as u32,
+                height: win_height as u32,
+            }));
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            let _ = window.set_focus();
+        } else {
+            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                width: 640.0,
+                height: 400.0,
+            }));
+            let _ = window.center();
+            let _ = window.set_focus();
         }
         Ok(())
     } else {
@@ -460,7 +615,6 @@ async fn show_now_playing_overlay(app: AppHandle) -> Result<(), String> {
         if let Some(search) = app.get_webview_window("search") {
             let _ = search.hide();
         }
-        let _ = window.center();
         let _ = window.show();
         let _ = window.set_focus();
         let _ = window.emit("overlay_trigger", ());
@@ -611,6 +765,16 @@ async fn hide_playlist_picker(app: AppHandle) -> Result<(), String> {
 }
 
 #[command]
+async fn show_main_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+#[command]
 async fn minimize_main_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.minimize();
@@ -757,6 +921,8 @@ pub fn run() {
             toggle_now_playing_overlay,
             show_now_playing_overlay,
             hide_now_playing_overlay,
+            resize_now_playing_overlay,
+            set_overlay_classic_mode,
             toggle_search_overlay,
             show_search_overlay,
             hide_search_overlay,
@@ -765,6 +931,7 @@ pub fn run() {
             show_playlist_picker,
             hide_playlist_picker,
             minimize_main_window,
+            show_main_window,
             toggle_maximize_main_window,
             close_main_window,
             get_native_media_info
