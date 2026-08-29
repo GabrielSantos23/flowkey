@@ -15,6 +15,8 @@
    - [3. Prevenção de Race Conditions ao Avançar Músicas](#3-prevenção-de-race-conditions-ao-avançar-músicas)
    - [4. Instância Única e Inicialização Silenciosa em Background](#4-instância-única-e-inicialização-silenciosa-em-background)
    - [5. Sistema de Atualizações Automáticas (Tauri v2 Updater)](#5-sistema-de-atualizações-automáticas-tauri-v2-updater)
+   - [6. Modo Dynamic Island (Ilha Dinâmica) & Fixação em Tela Cheia](#6-modo-dynamic-island-ilha-dinâmica--fixação-em-tela-cheia)
+   - [7. Motor de Estado Otimista & Resiliência a Rate-Limit do Spotify (Zero 429)](#7-motor-de-estado-otimista--resiliência-a-rate-limit-do-spotify-zero-429)
 6. [Galeria de Telas e Demonstrações](#-galeria-de-telas-e-demonstrações)
 7. [Como Instalar e Executar](#-como-instalar-e-executar)
 8. [Conclusão e Próximos Passos](#-conclusão-e-próximos-passos)
@@ -45,7 +47,7 @@ O aplicativo nativo do Spotify para desktop é excelente para descobrir músicas
 O FlowKey nasceu para resolver exatamente essas dores:
 - **Consumo Mínimo de Memória**: O backend em Rust consome apenas ~25MB de RAM.
 - **Latência Zero (0ms)**: Resposta imediata utilizando eventos de hardware do Windows.
-- **Overlay HUD Elegante**: Janelas flutuantes frameless com efeito glassmorphism que desaparecem automaticamente quando você não precisa delas.
+- **Overlay HUD & Dynamic Island**: Janelas flutuantes frameless com estética glassmorphism e ilha dinâmica no topo da tela.
 
 ---
 
@@ -53,13 +55,16 @@ O FlowKey nasceu para resolver exatamente essas dores:
 
 | Recurso | Descrição |
 | :--- | :--- |
+| 🏝️ **Dynamic Island (Ilha Dinâmica)** | Micro-cápsula flutuante no topo central da tela inspirada no iOS, com estado compacto e expansão interativa para controle de mídia. |
 | ⚡ **Atalhos Globais de Mídia** | Play/Pause, Próxima Faixa, Faixa Anterior e Volume operam globalmente em qualquer app ou jogo. |
 | 🔔 **Track Toast Instantâneo (0ms)** | Notificação flutuante que lê os dados via **Windows GSMTC** na velocidade da luz e enriquece com a capa oficial via API. |
-| 🪟 **Overlay "Now Playing"** | HUD flutuante translúcido que mostra capa em alta definição, barra de progresso, botões de ação e dados do artista. |
+| 🪟 **Overlay "Now Playing" Clássico** | HUD flutuante translúcido no centro da tela com capa em alta definição, barra de progresso, botões de ação e dados do artista. |
+| 🚀 **Motor Otimista (Anti-429)** | Resposta imediata com 0ms em ações locais e interpolação de progresso suave sem sobrecarregar a API do Spotify. |
 | 🔍 **Overlay de Busca Rápida** | Pressione um atalho e digite para buscar faixas, artistas e álbuns sem sair da sua tela atual. |
 | ❤️ **Like / Dislike com 1 Toque** | Salve ou remova faixas das "Músicas Curtidas" instantaneamente sem abrir o Spotify. |
 | 📋 **Menu de Playlists e Fila** | Adicione faixas a playlists existentes ou envie para a fila de reprodução com 1 comando. |
-| 🔒 **Single-Instance Lock** | Impede múltiplas instâncias concorrentes; abrir o app novamente apenas foca a instância ativa. |
+| 🎮 **Suporte a Tela Cheia (Topmost)** | Overlays permanecem visíveis mesmo sobre jogos borderless e aplicativos em tela cheia. |
+| 🔒 **Single-Instance & Anti-Alt+F4** | Impede múltiplas instâncias e intercepta o fechamento acidental de janelas para mantê-las sempre prontas em segundo plano. |
 | 🚀 **Inicialização Silenciosa** | Inicia junto com o Windows direto na **Bandeja do Sistema (System Tray)** sem incomodar o usuário. |
 | 🔄 **Auto-Updater Embutido** | Verifica, baixa e instala atualizações diretamente pelo GitHub Releases com verificação de assinatura criptográfica. |
 
@@ -305,11 +310,82 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
 
 ---
 
+### 6. Modo Dynamic Island (Ilha Dinâmica) & Fixação em Tela Cheia
+
+A **Dynamic Island** do FlowKey é uma micro-cápsula flutuante posicionada organicamente no topo central do monitor principal, inspirada no conceito do iOS.
+
+#### Estados da Ilha:
+1. **Estado Compacto (Pílula Mínima)**:
+   - Mede apenas `172px × 34px`, perfeita para não obstruir abas de navegadores, barras de títulos ou janelas de código.
+   - Exibe a arte do álbum em miniatura e um equalizador de áudio animado em tempo real.
+2. **Estado Expandido (Controle Completo)**:
+   - Ao clicar ou acionar pelo atalho, expande suavemente com curvas cúbicas para `340px × 170px`.
+   - Oferece controles completos: Play/Pause, Próxima/Anterior, **Scrubber de Progresso Interativo**, botões de **Shuffle** e **Repeat com 3 estados** (`off`, `context`, `track`), seletor dinâmico de fonte de áudio (Spotify, Navegador, VLC, etc.) e atalho direto para as configurações.
+
+```typescript
+// Transição fluida entre estado compacto e expandido
+<div
+  onClick={() => setIsExpanded(true)}
+  className={`relative bg-black text-white cursor-pointer overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.175,0.885,0.32,1.15)] ${
+    isExpanded
+      ? "w-85 h-42.5 rounded-b-[22px]"
+      : "w-43 h-8.5 rounded-b-[18px]"
+  }`}
+>
+```
+
+#### Mergulho em Win32 & Ciclo de Vida:
+- **Z-Order Imbatível em Tela Cheia**: Usando a flag Win32 `HWND_TOPMOST` combinada com `SWP_NOACTIVATE`, a ilha e os overlays mantêm sua posição acima de jogos em modo janela sem bordas (*borderless*) e vídeos em tela cheia sem roubar o foco do teclado.
+- **Proteção Anti-Destruição com `Alt + F4`**: No Tauri v2, o fechamento padrão destrói a janela `WebviewWindow`. Interceptamos o evento `CloseRequested` globalmente no Rust com `api.prevent_close()` e `window.hide()`, garantindo que a ilha nunca seja morta acidentalmente e reapareça instantaneamente no próximo atalho.
+
+---
+
+### 7. Motor de Estado Otimista & Resiliência a Rate-Limit do Spotify (Zero 429)
+
+#### O Desafio:
+Para desenhar uma barra de progresso suave e exibir instantaneamente o status de play/pause, o padrão da maioria das aplicações é fazer requisições frequentes (`polling`) ao endpoint `/v1/me/player` da REST API do Spotify a cada 1 ou 2 segundos.  
+Contudo, o Spotify impõe limites rígidos de taxa (*rate limits*) por aplicativo, resultando rapidamente em erros **`HTTP 429 Too Many Requests`**.
+
+#### A Solução do FlowKey: Estado Otimista + Interpolação Local
+
+Implementamos um modelo de estado otimista inspirado em sistemas colaborativos em tempo real:
+
+1. **Atualizações Otimistas Imediatas (0ms de Latência)**:
+   - Como o FlowKey é a fonte que dispara as ações do usuário (Play, Pause, Seek, Pular Faixa, Shuffle, Repeat), a interface gráfica **atualiza seu estado interno instantaneamente** em memória React, sem aguardar o retorno da requisição de rede.
+   - As chamadas à API do Spotify acontecem de forma assíncrona em segundo plano sem bloquear a renderização.
+
+2. **Animação de Progresso Client-Side (Zero Chamadas de Rede)**:
+   - Ao receber o estado uma única vez, armazenamos `progress_ms`, `duration_ms` e a âncora de tempo `Date.now()`.
+   - Um timer local ultraleve a cada 150ms extrapola a posição:
+     $$\text{progressoAtual} = \min(\text{duracaoMs}, \text{baseMs} + (\text{agora} - \text{timestamp}))$$
+   - A barra e o contador de tempo rodam fluidos em 60fps sem disparar sequer uma única requisição HTTP!
+
+3. **Reconciliação por Eventos em vez de Polling Contínuo**:
+   - A API do Spotify só é consultada em momentos estratégicos:
+     - Quando o overlay se torna visível / ganha foco.
+     - Quando a extrapolação atinge o final calculado da música (`progressoAtual >= duracaoMs`), agendando uma única busca 800ms depois para carregar a próxima faixa.
+     - Em longos intervalos de segurança (~25s tocando / ~60s pausado) apenas para sincronizar caso o usuário mude a música no celular.
+4. **Respeito ao Header `Retry-After`**:
+   - Caso um `429` seja retornado por tráfego externo, o cliente lê o header `Retry-After`, trava as requisições temporariamente e serve o último estado do cache, eliminando rajadas de erro.
+5. **Persistência de Sessão e Retomada**:
+   - O FlowKey memoriza a última música e posição no `localStorage`. Ao clicar na pílula do Spotify e dar Play, o app retoma a reprodução mesmo se o Spotify estiver fechado ou pausado há horas.
+
+---
+
 ## 📸 Galeria de Telas e Demonstrações
 
 Aqui você pode conferir as principais interfaces do FlowKey em ação:
 
-### 1. Painel Principal de Configurações
+### 1. Dynamic Island (Ilha Dinâmica) — Estados Compacto e Expandido
+A cápsula flutuante que se adapta ao topo da sua tela, exibindo equalizador animado e expandindo para controles completos com scrubber suave.
+
+> 📸 **[IMAGEM: Dynamic Island nos estados Compacto e Expandido]**  
+> *(Insira aqui a captura de tela da Ilha Dinâmica no topo da tela)*  
+> `![Dynamic Island](./docs/screenshots/dynamic_island.png)`
+
+---
+
+### 2. Painel Principal de Configurações
 Gerencie todos os atalhos, defina aliases rápidos e conecte sua conta do Spotify.
 
 > 📸 **[IMAGEM: Janela Principal de Configurações do FlowKey]**  
@@ -318,16 +394,16 @@ Gerencie todos os atalhos, defina aliases rápidos e conecte sua conta do Spotif
 
 ---
 
-### 2. Overlay Flutuante "Now Playing" (HUD)
-Aparece no centro da tela com comandos de reprodução, barra de progresso em tempo real e visualização de álbum sem bordas.
+### 3. Overlay Flutuante "Now Playing" Clássico (HUD Central)
+Aparece no centro da tela com comandos de reprodução, visualização de álbum sem bordas e botões de rádio e like.
 
-> 📸 **[IMAGEM: Overlay Now Playing]**  
+> 📸 **[IMAGEM: Overlay Now Playing Clássico]**  
 > *(Insira aqui a captura de tela do HUD translúcido `NowPlayingOverlayWindow`)*  
 > `![Overlay Now Playing](./docs/screenshots/now_playing_overlay.png)`
 
 ---
 
-### 3. Overlay de Busca Rápida
+### 4. Overlay de Busca Rápida
 Busca instantânea no catálogo do Spotify para reproduzir músicas ou rádios de artista rapidamente.
 
 > 📸 **[IMAGEM: Overlay de Busca Rápida]**  
@@ -336,7 +412,7 @@ Busca instantânea no catálogo do Spotify para reproduzir músicas ou rádios d
 
 ---
 
-### 4. Notificação Flutuante de Faixa (Track Toast)
+### 5. Notificação Flutuante de Faixa (Track Toast)
 Notificação leve e discreta que surge no canto da tela informando a nova faixa com latência zero.
 
 > 📸 **[IMAGEM: Track Toast Notification]**  
@@ -345,8 +421,8 @@ Notificação leve e discreta que surge no canto da tela informando a nova faixa
 
 ---
 
-### 5. Modal de Configurações & Bandeja do Sistema
-Gerencie o início com o Windows, verifique atualizações e acesse o menu de contexto na bandeja.
+### 6. Modal de Configurações & Bandeja do Sistema
+Gerencie o início com o Windows, escolha o estilo do overlay (Ilha Dinâmica ou Clássico), verifique atualizações e acesse o menu de contexto na bandeja.
 
 > 📸 **[IMAGEM: Modal de Configurações & System Tray]**  
 > *(Insira aqui a captura de tela do `SettingsModal` e do menu de bandeja)*  
