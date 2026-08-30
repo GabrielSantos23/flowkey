@@ -344,7 +344,7 @@ export const NowPlayingDynamicIsland: React.FC<
     return () => clearInterval(timer);
   }, [fetchState, isVisible, isPlaying, isSpotifyActive, track?.id]);
 
-  // Real-time Windows GSMTC Polling (350ms local Win32 call, 0 network requests)
+  // Real-time Windows GSMTC Polling (800ms local Win32 call, 0 network requests)
   useEffect(() => {
     if (!isVisible) return;
 
@@ -352,21 +352,40 @@ export const NowPlayingDynamicIsland: React.FC<
       try {
         const native = await getNativeMediaInfo();
         if (native && native.title) {
-          setNativeInfo(native);
+          setNativeInfo((prev) => {
+            if (
+              prev?.title === native.title &&
+              prev?.artist === native.artist &&
+              prev?.is_playing === native.is_playing &&
+              prev?.album_art === native.album_art
+            ) {
+              return prev;
+            }
+            return native;
+          });
+
           if (native.duration_ms && native.duration_ms > 0) {
-            progressAnchorRef.current = {
-              baseMs: native.position_ms || 0,
-              timestamp: Date.now(),
-              isPlaying: Boolean(native.is_playing),
-              durationMs: native.duration_ms,
-            };
+            const currentAnchor = progressAnchorRef.current;
+            const drift = Math.abs(currentAnchor.baseMs - (native.position_ms || 0));
+            if (
+              currentAnchor.durationMs !== native.duration_ms ||
+              currentAnchor.isPlaying !== Boolean(native.is_playing) ||
+              drift > 2000
+            ) {
+              progressAnchorRef.current = {
+                baseMs: native.position_ms || 0,
+                timestamp: Date.now(),
+                isPlaying: Boolean(native.is_playing),
+                durationMs: native.duration_ms,
+              };
+            }
           }
         }
       } catch {}
     };
 
     pollNative();
-    const interval = setInterval(pollNative, 350);
+    const interval = setInterval(pollNative, 800);
     return () => clearInterval(interval);
   }, [isVisible]);
 

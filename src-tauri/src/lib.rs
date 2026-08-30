@@ -49,6 +49,9 @@ fn native_prev_track() -> Result<String, String> {
     Ok("VK_MEDIA_PREV_TRACK (0xB1) sent".into())
 }
 
+use std::sync::Mutex;
+static CACHED_THUMBNAIL: Mutex<Option<(String, String, String)>> = Mutex::new(None);
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NativeMediaMetadata {
     pub title: String,
@@ -170,22 +173,35 @@ fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
     let album = properties.AlbumTitle().map(|h| h.to_string()).unwrap_or_default();
 
     let mut album_art = String::new();
-    if let Ok(thumb_ref) = properties.Thumbnail() {
-        if let Ok(stream_op) = thumb_ref.OpenReadAsync() {
-            if let Ok(stream) = stream_op.get() {
-                if let Ok(size) = stream.Size() {
-                    if size > 0 && size < 4 * 1024 * 1024 {
-                        use windows::Storage::Streams::{DataReader, InputStreamOptions};
-                        if let Ok(reader) = DataReader::CreateDataReader(&stream) {
-                            let _ = reader.SetInputStreamOptions(InputStreamOptions::None);
-                            if let Ok(load_op) = reader.LoadAsync(size as u32) {
-                                if load_op.get().is_ok() {
-                                    let mut bytes = vec![0u8; size as usize];
-                                    if reader.ReadBytes(&mut bytes).is_ok() {
-                                        album_art = format!(
-                                            "data:image/png;base64,{}",
-                                            BASE64_STANDARD.encode(&bytes)
-                                        );
+    let mut need_fetch_thumb = true;
+
+    if let Ok(guard) = CACHED_THUMBNAIL.lock() {
+        if let Some((cached_title, cached_artist, cached_art)) = guard.as_ref() {
+            if *cached_title == title && *cached_artist == artist {
+                album_art = cached_art.clone();
+                need_fetch_thumb = false;
+            }
+        }
+    }
+
+    if need_fetch_thumb {
+        if let Ok(thumb_ref) = properties.Thumbnail() {
+            if let Ok(stream_op) = thumb_ref.OpenReadAsync() {
+                if let Ok(stream) = stream_op.get() {
+                    if let Ok(size) = stream.Size() {
+                        if size > 0 && size < 4 * 1024 * 1024 {
+                            use windows::Storage::Streams::{DataReader, InputStreamOptions};
+                            if let Ok(reader) = DataReader::CreateDataReader(&stream) {
+                                let _ = reader.SetInputStreamOptions(InputStreamOptions::None);
+                                if let Ok(load_op) = reader.LoadAsync(size as u32) {
+                                    if load_op.get().is_ok() {
+                                        let mut bytes = vec![0u8; size as usize];
+                                        if reader.ReadBytes(&mut bytes).is_ok() {
+                                            album_art = format!(
+                                                "data:image/png;base64,{}",
+                                                BASE64_STANDARD.encode(&bytes)
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -193,6 +209,9 @@ fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
                     }
                 }
             }
+        }
+        if let Ok(mut guard) = CACHED_THUMBNAIL.lock() {
+            *guard = Some((title.clone(), artist.clone(), album_art.clone()));
         }
     }
 
@@ -534,8 +553,43 @@ fn open_in_spotify(target: String) -> Result<String, String> {
 fn trim_working_set_memory() {
     unsafe {
         use windows_sys::Win32::System::ProcessStatus::EmptyWorkingSet;
-        use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        use windows_sys::Win32::System::Threading::{
+            GetCurrentProcess, GetCurrentProcessId, OpenProcess, PROCESS_QUERY_INFORMATION,
+            PROCESS_SET_QUOTA,
+        };
+        use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
+            TH32CS_SNAPPROCESS,
+        };
+
+        let current_pid = GetCurrentProcessId();
         let _ = EmptyWorkingSet(GetCurrentProcess());
+
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot != windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+            let mut entry: PROCESSENTRY32 = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32>() as u32;
+
+            if Process32First(snapshot, &mut entry) != 0 {
+                loop {
+                    if entry.th32ParentProcessID == current_pid {
+                        let child_handle = OpenProcess(
+                            PROCESS_SET_QUOTA | PROCESS_QUERY_INFORMATION,
+                            0,
+                            entry.th32ProcessID,
+                        );
+                        if !child_handle.is_null() {
+                            let _ = EmptyWorkingSet(child_handle);
+                            windows_sys::Win32::Foundation::CloseHandle(child_handle);
+                        }
+                    }
+                    if Process32Next(snapshot, &mut entry) == 0 {
+                        break;
+                    }
+                }
+            }
+            windows_sys::Win32::Foundation::CloseHandle(snapshot);
+        }
     }
 }
 
@@ -969,6 +1023,26 @@ pub fn run() {
             }
 
             let _tray = tray_builder.build(app)?;
+
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+                loop {
+                    interval.tick().await;
+                    let main_visible = app_handle
+                        .get_webview_window("main")
+                        .and_then(|w| w.is_visible().ok())
+                        .unwrap_or(false);
+                    let overlay_visible = app_handle
+                        .get_webview_window("overlay")
+                        .and_then(|w| w.is_visible().ok())
+                        .unwrap_or(false);
+
+                    if !main_visible && !overlay_visible {
+                        trim_working_set_memory();
+                    }
+                }
+            });
 
             Ok(())
         })
