@@ -558,16 +558,33 @@ class SpotifyService {
   }
 
   public async fetchNewTrackAfterSkip(
-    _previousTrackId?: string | null,
-    delayMs = 450
+    previousTrackId?: string | null,
+    maxWaitMs = 3000
   ): Promise<SpotifyTrack | null> {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    try {
-      const res = await this.getNowPlaying();
-      return res.data.item;
-    } catch {
-      return null;
+    const startTime = Date.now();
+    const checkDelays = [200, 350, 600, 900, 1200];
+    let idx = 0;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      const delay = checkDelays[Math.min(idx++, checkDelays.length - 1)];
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      if (this.isRateLimited()) break;
+
+      try {
+        const res = await this.getNowPlaying(true);
+        const currentItem = res.data.item;
+        if (currentItem) {
+          if (!previousTrackId || currentItem.id !== previousTrackId) {
+            this.lastTrackId = currentItem.id;
+            return currentItem;
+          }
+        }
+      } catch {
+        break;
+      }
     }
+
+    return null;
   }
 
   public async setVolume(

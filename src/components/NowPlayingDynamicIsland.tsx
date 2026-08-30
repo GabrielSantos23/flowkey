@@ -144,7 +144,7 @@ export const NowPlayingDynamicIsland: React.FC<
       let spotifyHasData = false;
       if (spotifyService.isAuthenticated()) {
         try {
-          const res = await spotifyService.getNowPlaying();
+          const res = await spotifyService.getNowPlaying(force);
           if (res.data?.item) {
             spotifyHasData = true;
             spotifyPlaying = Boolean(res.data.is_playing);
@@ -296,9 +296,26 @@ export const NowPlayingDynamicIsland: React.FC<
           !trackEndedHandledRef.current
         ) {
           trackEndedHandledRef.current = true;
-          setTimeout(() => {
-            fetchState(true);
-          }, 800);
+          const previousTrackId = track?.id;
+
+          // 1. Immediately poll Windows GSMTC for local metadata at 150ms
+          setTimeout(async () => {
+            try {
+              const native = await getNativeMediaInfo();
+              if (native && native.title) {
+                setNativeInfo(native);
+              }
+            } catch {}
+          }, 150);
+
+          // 2. Fetch new Spotify track using smart retry loop
+          if (isSpotifyActive && spotifyService.isAuthenticated()) {
+            spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
+              if (newItem) {
+                fetchState(true);
+              }
+            });
+          }
         }
       } else {
         setDisplayProgressMs(baseMs);
@@ -306,7 +323,7 @@ export const NowPlayingDynamicIsland: React.FC<
     }, 150);
 
     return () => clearInterval(timer);
-  }, [fetchState, isVisible, isPlaying]);
+  }, [fetchState, isVisible, isPlaying, isSpotifyActive, track?.id]);
 
   // Reconciliation polling (25s when playing, 60s when paused)
   useEffect(() => {
@@ -322,7 +339,7 @@ export const NowPlayingDynamicIsland: React.FC<
     };
   }, [fetchState, isPlaying, isVisible]);
 
-  // Global overlay trigger listener
+  // Global overlay trigger & cross-window sync listener
   useEffect(() => {
     let unlistenTrigger: (() => void) | undefined;
     try {
@@ -338,9 +355,30 @@ export const NowPlayingDynamicIsland: React.FC<
         });
     } catch {}
 
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      bc = new BroadcastChannel("flowkey_playback_sync");
+      bc.onmessage = (e) => {
+        if (e.data?.type === "TRACK_SKIPPED") {
+          setTimeout(async () => {
+            try {
+              const native = await getNativeMediaInfo();
+              if (native && native.title) setNativeInfo(native);
+            } catch {}
+          }, 60);
+          if (spotifyService.isAuthenticated()) {
+            spotifyService.fetchNewTrackAfterSkip().then((newItem) => {
+              if (newItem) fetchState(true);
+            });
+          }
+        }
+      };
+    }
+
     return () => {
       if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
       unlistenTrigger?.();
+      bc?.close();
     };
   }, [fetchState]);
 
@@ -467,6 +505,8 @@ export const NowPlayingDynamicIsland: React.FC<
 
   const handleNext = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    const previousTrackId = track?.id;
+
     progressAnchorRef.current = {
       baseMs: 0,
       timestamp: Date.now(),
@@ -476,16 +516,30 @@ export const NowPlayingDynamicIsland: React.FC<
     setDisplayProgressMs(0);
     trackEndedHandledRef.current = false;
 
+    // 1. Immediately poll Windows GSMTC for 0ms metadata update
+    setTimeout(async () => {
+      try {
+        const native = await getNativeMediaInfo();
+        if (native && native.title) {
+          setNativeInfo(native);
+        }
+      } catch {}
+    }, 60);
+
     try {
       if (isSpotifyActive && spotifyService.isAuthenticated()) {
         spotifyService.nextTrack().catch((err) => {
           console.warn("Next track error:", err);
         });
-        setTimeout(() => fetchState(true), 450);
+        spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
+          if (newItem) {
+            fetchState(true);
+          }
+        });
         return;
       }
       await invoke("native_next_track");
-      setTimeout(() => fetchState(true), 450);
+      setTimeout(() => fetchState(true), 350);
     } catch (err) {
       console.error("Next error:", err);
     }
@@ -493,6 +547,8 @@ export const NowPlayingDynamicIsland: React.FC<
 
   const handlePrev = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    const previousTrackId = track?.id;
+
     progressAnchorRef.current = {
       baseMs: 0,
       timestamp: Date.now(),
@@ -502,16 +558,30 @@ export const NowPlayingDynamicIsland: React.FC<
     setDisplayProgressMs(0);
     trackEndedHandledRef.current = false;
 
+    // 1. Immediately poll Windows GSMTC for 0ms metadata update
+    setTimeout(async () => {
+      try {
+        const native = await getNativeMediaInfo();
+        if (native && native.title) {
+          setNativeInfo(native);
+        }
+      } catch {}
+    }, 60);
+
     try {
       if (isSpotifyActive && spotifyService.isAuthenticated()) {
         spotifyService.previousTrack().catch((err) => {
           console.warn("Prev track error:", err);
         });
-        setTimeout(() => fetchState(true), 450);
+        spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
+          if (newItem) {
+            fetchState(true);
+          }
+        });
         return;
       }
       await invoke("native_prev_track");
-      setTimeout(() => fetchState(true), 450);
+      setTimeout(() => fetchState(true), 350);
     } catch (err) {
       console.error("Prev error:", err);
     }
