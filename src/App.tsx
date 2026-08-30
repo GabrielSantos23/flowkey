@@ -32,44 +32,40 @@ export function App() {
       },
       next_track: async () => {
         const seq = ++skipSequence;
-        const previousTrackId = spotifyService.getLastTrackId();
+        const initial = await getNativeMediaInfo();
+        const prevTitle = initial.title;
 
         try {
           await invoke("native_next_track");
 
-          setTimeout(async () => {
+          let foundNew = false;
+          for (const delay of [80, 150, 250, 400, 600]) {
+            await new Promise((r) => setTimeout(r, delay));
             if (seq !== skipSequence) return;
             const nativeInfo = await getNativeMediaInfo();
-            if (nativeInfo?.title) {
+            if (nativeInfo?.title && (!prevTitle || nativeInfo.title !== prevTitle)) {
+              foundNew = true;
               await invoke("show_track_toast", {
                 payload: {
                   action: "next",
                   title: nativeInfo.title,
-                  artist: nativeInfo.artist || "Spotify Playback",
+                  artist: nativeInfo.artist || "Media Playback",
                   album_art: nativeInfo.album_art || "",
                 },
               });
-            } else {
-              await invoke("show_track_toast", {
-                payload: {
-                  action: "next",
-                  title: "Advancing Track...",
-                  artist: "Spotify Playback",
-                  album_art: "",
-                },
-              });
+              break;
             }
-          }, 60);
+          }
 
-          if (spotifyService.isAuthenticated()) {
-            const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
-            if (seq === skipSequence && newItem) {
+          if (!foundNew && seq === skipSequence) {
+            const finalInfo = await getNativeMediaInfo();
+            if (finalInfo?.title) {
               await invoke("show_track_toast", {
                 payload: {
                   action: "next",
-                  title: newItem.name,
-                  artist: newItem.artists?.map((a: any) => a.name).join(", ") || "",
-                  album_art: newItem.album?.images?.[0]?.url || "",
+                  title: finalInfo.title,
+                  artist: finalInfo.artist || "Media Playback",
+                  album_art: finalInfo.album_art || "",
                 },
               });
             }
@@ -80,44 +76,40 @@ export function App() {
       },
       prev_track: async () => {
         const seq = ++skipSequence;
-        const previousTrackId = spotifyService.getLastTrackId();
+        const initial = await getNativeMediaInfo();
+        const prevTitle = initial.title;
 
         try {
           await invoke("native_prev_track");
 
-          setTimeout(async () => {
+          let foundNew = false;
+          for (const delay of [80, 150, 250, 400, 600]) {
+            await new Promise((r) => setTimeout(r, delay));
             if (seq !== skipSequence) return;
             const nativeInfo = await getNativeMediaInfo();
-            if (nativeInfo?.title) {
+            if (nativeInfo?.title && (!prevTitle || nativeInfo.title !== prevTitle)) {
+              foundNew = true;
               await invoke("show_track_toast", {
                 payload: {
                   action: "prev",
                   title: nativeInfo.title,
-                  artist: nativeInfo.artist || "Spotify Playback",
+                  artist: nativeInfo.artist || "Media Playback",
                   album_art: nativeInfo.album_art || "",
                 },
               });
-            } else {
-              await invoke("show_track_toast", {
-                payload: {
-                  action: "prev",
-                  title: "Previous Track...",
-                  artist: "Spotify Playback",
-                  album_art: "",
-                },
-              });
+              break;
             }
-          }, 60);
+          }
 
-          if (spotifyService.isAuthenticated()) {
-            const newItem = await spotifyService.fetchNewTrackAfterSkip(previousTrackId);
-            if (seq === skipSequence && newItem) {
+          if (!foundNew && seq === skipSequence) {
+            const finalInfo = await getNativeMediaInfo();
+            if (finalInfo?.title) {
               await invoke("show_track_toast", {
                 payload: {
                   action: "prev",
-                  title: newItem.name,
-                  artist: newItem.artists?.map((a: any) => a.name).join(", ") || "",
-                  album_art: newItem.album?.images?.[0]?.url || "",
+                  title: finalInfo.title,
+                  artist: finalInfo.artist || "Media Playback",
+                  album_art: finalInfo.album_art || "",
                 },
               });
             }

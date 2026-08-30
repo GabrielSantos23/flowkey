@@ -57,6 +57,8 @@ pub struct NativeMediaMetadata {
     pub album_art: String,
     pub source_app: String,
     pub is_playing: bool,
+    pub position_ms: i64,
+    pub duration_ms: i64,
 }
 
 #[cfg(target_os = "windows")]
@@ -149,6 +151,14 @@ fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
         false
     };
 
+    let (position_ms, duration_ms) = if let Ok(timeline) = session.GetTimelineProperties() {
+        let pos = timeline.Position().map(|p| p.Duration / 10_000).unwrap_or(0);
+        let dur = timeline.EndTime().map(|e| e.Duration / 10_000).unwrap_or(0);
+        (pos, dur)
+    } else {
+        (0, 0)
+    };
+
     let properties = session
         .TryGetMediaPropertiesAsync()
         .map_err(|e| e.to_string())?
@@ -193,6 +203,8 @@ fn get_windows_media_properties() -> Result<NativeMediaMetadata, String> {
         album_art,
         source_app,
         is_playing,
+        position_ms,
+        duration_ms,
     })
 }
 
@@ -237,6 +249,8 @@ fn get_spotify_window_title_info() -> Result<NativeMediaMetadata, String> {
                 album_art: String::new(),
                 source_app: "Spotify".to_string(),
                 is_playing: true,
+                position_ms: 0,
+                duration_ms: 0,
             });
         }
     }

@@ -189,14 +189,29 @@ export const NowPlayingClassicOverlay: React.FC = () => {
 
   const handleNext = async () => {
     if (!nextShortcut.enabled) return;
+    const previousTrackId = playbackState?.item?.id;
+
+    if (spotifyService.isAuthenticated()) {
+      const nextTrack = spotifyService.popNextFromQueue();
+      if (nextTrack) {
+        setPlaybackState((prev) =>
+          prev
+            ? { ...prev, item: nextTrack, progress_ms: 0, is_playing: true }
+            : { is_playing: true, item: nextTrack, progress_ms: 0 }
+        );
+      }
+    }
+
     try {
       if (spotifyService.isAuthenticated()) {
         spotifyService.nextTrack().catch(() => {});
-        setTimeout(() => fetchState(true), 450);
+        spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
+          if (newItem) fetchState(true);
+        });
         return;
       }
       await invoke("native_next_track");
-      setTimeout(() => fetchState(true), 450);
+      setTimeout(() => fetchState(true), 350);
     } catch (e) {
       console.error("Next track error:", e);
     }
@@ -204,14 +219,18 @@ export const NowPlayingClassicOverlay: React.FC = () => {
 
   const handlePrev = async () => {
     if (!prevShortcut.enabled) return;
+    const previousTrackId = playbackState?.item?.id;
+
     try {
       if (spotifyService.isAuthenticated()) {
         spotifyService.previousTrack().catch(() => {});
-        setTimeout(() => fetchState(true), 450);
+        spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
+          if (newItem) fetchState(true);
+        });
         return;
       }
       await invoke("native_prev_track");
-      setTimeout(() => fetchState(true), 450);
+      setTimeout(() => fetchState(true), 350);
     } catch (e) {
       console.error("Prev track error:", e);
     }

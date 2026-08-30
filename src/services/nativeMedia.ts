@@ -16,6 +16,8 @@ export interface NativeMediaMetadata {
   album_art: string;
   source_app?: string;
   is_playing?: boolean;
+  position_ms?: number;
+  duration_ms?: number;
 }
 
 export async function getNativeMediaInfo(): Promise<NativeMediaMetadata> {
@@ -23,7 +25,16 @@ export async function getNativeMediaInfo(): Promise<NativeMediaMetadata> {
     return await invoke<NativeMediaMetadata>("get_native_media_info");
   } catch (e) {
     console.warn("Failed to get native media info:", e);
-    return { title: "", artist: "", album: "", album_art: "", source_app: "", is_playing: false };
+    return {
+      title: "",
+      artist: "",
+      album: "",
+      album_art: "",
+      source_app: "",
+      is_playing: false,
+      position_ms: 0,
+      duration_ms: 0,
+    };
   }
 }
 

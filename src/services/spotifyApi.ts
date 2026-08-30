@@ -148,6 +148,57 @@ class SpotifyService {
     status: number;
     latencyMs: number;
   }> | null = null;
+  private cachedQueue: SpotifyTrack[] = [];
+  private lastQueueFetchTime: number = 0;
+
+  public getCachedQueue(): SpotifyTrack[] {
+    return this.cachedQueue;
+  }
+
+  public popNextFromQueue(): SpotifyTrack | null {
+    if (this.cachedQueue.length > 0) {
+      const next = this.cachedQueue.shift() || null;
+      if (this.cachedQueue.length <= 1) {
+        this.fetchQueue(true).catch(() => {});
+      }
+      return next;
+    }
+    return null;
+  }
+
+  public async fetchQueue(force = false): Promise<SpotifyTrack[]> {
+    if (this.isRateLimited()) return this.cachedQueue;
+    const now = Date.now();
+    if (!force && now - this.lastQueueFetchTime < 15000 && this.cachedQueue.length > 0) {
+      return this.cachedQueue;
+    }
+
+    try {
+      const token = await this.ensureValidToken();
+      if (!token) return this.cachedQueue;
+
+      const res = await fetch("https://api.spotify.com/v1/me/player/queue", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.status === 429) {
+        this.handleRateLimitResponse(res);
+        return this.cachedQueue;
+      }
+
+      if (res.ok && res.status === 200) {
+        const data = await res.json();
+        if (data && Array.isArray(data.queue)) {
+          this.cachedQueue = data.queue;
+          this.lastQueueFetchTime = Date.now();
+          return this.cachedQueue;
+        }
+      }
+    } catch (e) {
+      console.warn("Fetch queue failed:", e);
+    }
+    return this.cachedQueue;
+  }
 
   public isRateLimited(): boolean {
     return Date.now() < this.rateLimitUntil;
@@ -520,6 +571,9 @@ class SpotifyService {
                 this.lastTrackId = data.item.id;
               }
               this.lastPlaybackState = data;
+              if (data.is_playing && this.cachedQueue.length === 0) {
+                this.fetchQueue().catch(() => {});
+              }
               return { data, status: 200, latencyMs };
             }
           } catch {}
@@ -576,6 +630,7 @@ class SpotifyService {
         if (currentItem) {
           if (!previousTrackId || currentItem.id !== previousTrackId) {
             this.lastTrackId = currentItem.id;
+            this.fetchQueue(true).catch(() => {});
             return currentItem;
           }
         }

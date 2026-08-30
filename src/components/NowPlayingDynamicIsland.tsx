@@ -298,7 +298,26 @@ export const NowPlayingDynamicIsland: React.FC<
           trackEndedHandledRef.current = true;
           const previousTrackId = track?.id;
 
-          // 1. Immediately poll Windows GSMTC for local metadata at 150ms
+          // 0ms Optimistic Queue Pop on natural track completion
+          if (isSpotifyActive && spotifyService.isAuthenticated()) {
+            const nextTrack = spotifyService.popNextFromQueue();
+            if (nextTrack) {
+              setPlaybackState((prev) =>
+                prev
+                  ? { ...prev, item: nextTrack, progress_ms: 0, is_playing: true }
+                  : { is_playing: true, item: nextTrack, progress_ms: 0 }
+              );
+              progressAnchorRef.current = {
+                baseMs: 0,
+                timestamp: Date.now(),
+                isPlaying: true,
+                durationMs: nextTrack.duration_ms || 0,
+              };
+              setDisplayProgressMs(0);
+            }
+          }
+
+          // Fast GSMTC check at 60ms
           setTimeout(async () => {
             try {
               const native = await getNativeMediaInfo();
@@ -306,9 +325,9 @@ export const NowPlayingDynamicIsland: React.FC<
                 setNativeInfo(native);
               }
             } catch {}
-          }, 150);
+          }, 60);
 
-          // 2. Fetch new Spotify track using smart retry loop
+          // Fetch confirmed new track in background
           if (isSpotifyActive && spotifyService.isAuthenticated()) {
             spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
               if (newItem) {
@@ -324,6 +343,32 @@ export const NowPlayingDynamicIsland: React.FC<
 
     return () => clearInterval(timer);
   }, [fetchState, isVisible, isPlaying, isSpotifyActive, track?.id]);
+
+  // Real-time Windows GSMTC Polling (350ms local Win32 call, 0 network requests)
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const pollNative = async () => {
+      try {
+        const native = await getNativeMediaInfo();
+        if (native && native.title) {
+          setNativeInfo(native);
+          if (native.duration_ms && native.duration_ms > 0) {
+            progressAnchorRef.current = {
+              baseMs: native.position_ms || 0,
+              timestamp: Date.now(),
+              isPlaying: Boolean(native.is_playing),
+              durationMs: native.duration_ms,
+            };
+          }
+        }
+      } catch {}
+    };
+
+    pollNative();
+    const interval = setInterval(pollNative, 350);
+    return () => clearInterval(interval);
+  }, [isVisible]);
 
   // Reconciliation polling (25s when playing, 60s when paused)
   useEffect(() => {
@@ -507,6 +552,18 @@ export const NowPlayingDynamicIsland: React.FC<
     e?.stopPropagation();
     const previousTrackId = track?.id;
 
+    // 0ms Optimistic Queue Pop!
+    if (isSpotifyActive && spotifyService.isAuthenticated()) {
+      const nextTrack = spotifyService.popNextFromQueue();
+      if (nextTrack) {
+        setPlaybackState((prev) =>
+          prev
+            ? { ...prev, item: nextTrack, progress_ms: 0, is_playing: true }
+            : { is_playing: true, item: nextTrack, progress_ms: 0 }
+        );
+      }
+    }
+
     progressAnchorRef.current = {
       baseMs: 0,
       timestamp: Date.now(),
@@ -524,7 +581,7 @@ export const NowPlayingDynamicIsland: React.FC<
           setNativeInfo(native);
         }
       } catch {}
-    }, 60);
+    }, 50);
 
     try {
       if (isSpotifyActive && spotifyService.isAuthenticated()) {
@@ -661,18 +718,25 @@ export const NowPlayingDynamicIsland: React.FC<
     return null;
   }
 
+  const isNativeSpotify =
+    nativeInfo?.source_app?.toLowerCase().includes("spotify") ?? false;
+
   const albumArt = isSpotifyActive
-    ? track?.album?.images?.[0]?.url || nativeInfo?.album_art || ""
+    ? isNativeSpotify
+      ? nativeInfo?.album_art || track?.album?.images?.[0]?.url || ""
+      : track?.album?.images?.[0]?.url || ""
     : nativeInfo?.album_art || track?.album?.images?.[0]?.url || "";
 
   const trackTitle = isSpotifyActive
-    ? track?.name || nativeInfo?.title || "FlowKey"
+    ? isNativeSpotify
+      ? nativeInfo?.title || track?.name || "FlowKey"
+      : track?.name || (spotifyHasTrack ? "Spotify" : "No active Spotify track")
     : nativeInfo?.title || track?.name || "Now Playing";
 
   const artistName = isSpotifyActive
-    ? track?.artists?.map((a) => a.name).join(", ") ||
-      nativeInfo?.artist ||
-      "Spotify"
+    ? isNativeSpotify
+      ? nativeInfo?.artist || track?.artists?.map((a) => a.name).join(", ") || "Spotify"
+      : track?.artists?.map((a) => a.name).join(", ") || "Spotify"
     : nativeInfo?.artist ||
       track?.artists?.map((a) => a.name).join(", ") ||
       externalAppName ||
@@ -754,6 +818,9 @@ export const NowPlayingDynamicIsland: React.FC<
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedSource("spotify");
+                    if (spotifyService.isAuthenticated()) {
+                      fetchState(true);
+                    }
                   }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
