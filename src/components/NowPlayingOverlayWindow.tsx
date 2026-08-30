@@ -52,8 +52,6 @@ export const NowPlayingOverlayWindow: React.FC = () => {
         });
     } catch {}
 
-    const interval = setInterval(() => syncStyle(), 400);
-
     return () => {
       window.removeEventListener(
         "flowkey_overlay_style_changed",
@@ -61,7 +59,6 @@ export const NowPlayingOverlayWindow: React.FC = () => {
       );
       window.removeEventListener("storage", () => syncStyle());
       window.removeEventListener("focus", () => syncStyle());
-      clearInterval(interval);
       bc?.close();
       unlistenTauriEvent?.();
     };

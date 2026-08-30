@@ -162,6 +162,9 @@ export const NowPlayingClassicOverlay: React.FC = () => {
 
   useEffect(() => {
     fetchState(true);
+  }, [fetchState]);
+
+  useEffect(() => {
     const recInterval = playbackState?.is_playing ? 25000 : 60000;
     const interval = setInterval(() => fetchState(false), recInterval);
     return () => clearInterval(interval);

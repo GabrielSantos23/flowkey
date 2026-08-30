@@ -1193,7 +1193,7 @@ dependencies = [
 
 [[package]]
 name = "flowkey"
-version = "1.0.14"
+version = "1.0.17"
 dependencies = [
  "base64 0.22.1",
  "chrono",

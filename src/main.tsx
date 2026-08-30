@@ -1,12 +1,29 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import { NowPlayingOverlayWindow } from "./components/NowPlayingOverlayWindow";
-import { SearchOverlayWindow } from "./components/SearchOverlayWindow";
-import { TrackToastWindow } from "./components/toasts/TrackToastWindow";
-import { PlaylistPickerWindow } from "./components/PlaylistPickerWindow";
 import { TooltipProvider } from "./components/ui/tooltip";
 import "./App.css";
+
+const App = React.lazy(() => import("./App").then((m) => ({ default: m.App })));
+const NowPlayingOverlayWindow = React.lazy(() =>
+  import("./components/NowPlayingOverlayWindow").then((m) => ({
+    default: m.NowPlayingOverlayWindow,
+  })),
+);
+const SearchOverlayWindow = React.lazy(() =>
+  import("./components/SearchOverlayWindow").then((m) => ({
+    default: m.SearchOverlayWindow,
+  })),
+);
+const TrackToastWindow = React.lazy(() =>
+  import("./components/toasts/TrackToastWindow").then((m) => ({
+    default: m.TrackToastWindow,
+  })),
+);
+const PlaylistPickerWindow = React.lazy(() =>
+  import("./components/PlaylistPickerWindow").then((m) => ({
+    default: m.PlaylistPickerWindow,
+  })),
+);
 
 const searchParams = new URLSearchParams(window.location.search);
 const windowParam = searchParams.get("window");
@@ -23,17 +40,19 @@ document.addEventListener("contextmenu", (e) => {
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <TooltipProvider>
-      {isPlaylistPickerWindow ? (
-        <PlaylistPickerWindow />
-      ) : isToastWindow ? (
-        <TrackToastWindow />
-      ) : isSearchWindow ? (
-        <SearchOverlayWindow />
-      ) : isOverlayWindow ? (
-        <NowPlayingOverlayWindow />
-      ) : (
-        <App />
-      )}
+      <React.Suspense fallback={null}>
+        {isPlaylistPickerWindow ? (
+          <PlaylistPickerWindow />
+        ) : isToastWindow ? (
+          <TrackToastWindow />
+        ) : isSearchWindow ? (
+          <SearchOverlayWindow />
+        ) : isOverlayWindow ? (
+          <NowPlayingOverlayWindow />
+        ) : (
+          <App />
+        )}
+      </React.Suspense>
     </TooltipProvider>
   </React.StrictMode>,
 );

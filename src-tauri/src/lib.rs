@@ -517,6 +517,18 @@ fn open_in_spotify(target: String) -> Result<String, String> {
 }
 
 #[cfg(target_os = "windows")]
+fn trim_working_set_memory() {
+    unsafe {
+        use windows_sys::Win32::System::ProcessStatus::EmptyWorkingSet;
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        let _ = EmptyWorkingSet(GetCurrentProcess());
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn trim_working_set_memory() {}
+
+#[cfg(target_os = "windows")]
 fn ensure_window_topmost(window: &tauri::WebviewWindow) {
     if !window.is_visible().unwrap_or(false) {
         return;
@@ -711,6 +723,7 @@ async fn hide_search_overlay(app: AppHandle) -> Result<(), String> {
 async fn hide_now_playing_overlay(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("overlay") {
         let _ = window.hide();
+        trim_working_set_memory();
         Ok(())
     } else {
         Err("Overlay window not found".into())
@@ -838,6 +851,7 @@ async fn toggle_maximize_main_window(app: AppHandle) -> Result<bool, String> {
 async fn close_main_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
+        trim_working_set_memory();
     }
     Ok(())
 }
@@ -863,6 +877,7 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();
+                trim_working_set_memory();
             }
         })
         .setup(|app| {

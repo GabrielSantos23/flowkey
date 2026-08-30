@@ -211,8 +211,7 @@ export const NowPlayingDynamicIsland: React.FC<
         spotifyPlaying ||
         nativePlaying ||
         spotifyHasData ||
-        nativeHasData ||
-        Boolean(savedSpotify?.item);
+        nativeHasData;
       if (isAnyActive) {
         setIsVisible(true);
         if (pauseTimeoutRef.current) {
@@ -228,7 +227,7 @@ export const NowPlayingDynamicIsland: React.FC<
         }
       }
     } catch {}
-  }, [savedSpotify?.item]);
+  }, []);
 
   const spotifyTrack: SpotifyTrack | undefined =
     playbackState?.item || savedSpotify?.item || undefined;
@@ -272,8 +271,15 @@ export const NowPlayingDynamicIsland: React.FC<
     optimisticPlaying !== null ? optimisticPlaying : baseIsPlaying;
   const durationMs = isSpotifyActive ? track?.duration_ms || 0 : 0;
 
-  // Client-side progress bar extrapolation (150ms interval, 0 network requests)
+  // Initial fetch on mount
   useEffect(() => {
+    fetchState(true);
+  }, [fetchState]);
+
+  // Client-side progress bar extrapolation (150ms interval, only while visible & playing)
+  useEffect(() => {
+    if (!isVisible || !isPlaying) return;
+
     const timer = setInterval(() => {
       const { baseMs, timestamp, isPlaying: anchorPlaying, durationMs: anchorDur } =
         progressAnchorRef.current;
@@ -300,16 +306,24 @@ export const NowPlayingDynamicIsland: React.FC<
     }, 150);
 
     return () => clearInterval(timer);
-  }, [fetchState]);
+  }, [fetchState, isVisible, isPlaying]);
 
-  // Reconciliation polling (25s when playing, 60s when paused) + event triggers
+  // Reconciliation polling (25s when playing, 60s when paused)
   useEffect(() => {
-    fetchState(true);
+    if (!isVisible) return;
+
     const reconciliationIntervalMs = isPlaying ? 25000 : 60000;
     const interval = setInterval(() => {
       fetchState(false);
     }, reconciliationIntervalMs);
 
+    return () => {
+      clearInterval(interval);
+    };
+  }, [fetchState, isPlaying, isVisible]);
+
+  // Global overlay trigger listener
+  useEffect(() => {
     let unlistenTrigger: (() => void) | undefined;
     try {
       const appWindow = getCurrentWebviewWindow();
@@ -325,11 +339,10 @@ export const NowPlayingDynamicIsland: React.FC<
     } catch {}
 
     return () => {
-      clearInterval(interval);
       if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
       unlistenTrigger?.();
     };
-  }, [fetchState, isPlaying]);
+  }, [fetchState]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -748,21 +761,21 @@ export const NowPlayingDynamicIsland: React.FC<
               <div className="flex items-center gap-[2.5px] h-4.5 px-1">
                 <span
                   className={`w-[2.5px] bg-white rounded-full transition-all ${
-                    isPlaying
+                    isPlaying && isVisible
                       ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5"
                       : "h-1"
                   }`}
                 />
                 <span
                   className={`w-[2.5px] bg-white rounded-full transition-all ${
-                    isPlaying
+                    isPlaying && isVisible
                       ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-4"
                       : "h-1.5"
                   }`}
                 />
                 <span
                   className={`w-[2.5px] bg-white rounded-full transition-all ${
-                    isPlaying
+                    isPlaying && isVisible
                       ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-3"
                       : "h-1"
                   }`}

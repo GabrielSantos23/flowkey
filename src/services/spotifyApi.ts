@@ -142,6 +142,12 @@ class SpotifyService {
   private likedCache = new Map<string, { isLiked: boolean; timestamp: number }>();
   private rateLimitUntil: number = 0;
   private lastPlaybackState: SpotifyPlaybackState | null = null;
+  private lastNowPlayingTime: number = 0;
+  private inFlightNowPlaying: Promise<{
+    data: SpotifyPlaybackState;
+    status: number;
+    latencyMs: number;
+  }> | null = null;
 
   public isRateLimited(): boolean {
     return Date.now() < this.rateLimitUntil;
@@ -439,7 +445,7 @@ class SpotifyService {
     return false;
   }
 
-  public async getNowPlaying(): Promise<{
+  public async getNowPlaying(force = false): Promise<{
     data: SpotifyPlaybackState;
     status: number;
     latencyMs: number;
@@ -456,76 +462,99 @@ class SpotifyService {
       };
     }
 
-    const token = await this.ensureValidToken();
-    if (!token) {
-      throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
-    }
-
-    const start = performance.now();
-    let res = await fetch("https://api.spotify.com/v1/me/player", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (res.status === 401) {
-      const refreshed = await this.tryAutoRefreshToken();
-      if (refreshed && this.accessToken) {
-        res = await fetch("https://api.spotify.com/v1/me/player", {
-          headers: { Authorization: `Bearer ${this.accessToken}` },
-        });
-      }
-    }
-
-    const latencyMs = Math.round(performance.now() - start);
-
-    if (res.status === 429) {
-      this.handleRateLimitResponse(res);
+    const now = Date.now();
+    if (!force && this.lastPlaybackState && now - this.lastNowPlayingTime < 1500) {
       return {
-        data: this.lastPlaybackState || {
-          is_playing: false,
-          item: null,
-          progress_ms: 0,
-        },
-        status: 429,
-        latencyMs,
+        data: this.lastPlaybackState,
+        status: 200,
+        latencyMs: 0,
       };
     }
 
-    if (res.ok && res.status === 200) {
+    if (this.inFlightNowPlaying) {
+      return this.inFlightNowPlaying;
+    }
+
+    const executeFetch = async () => {
       try {
-        const data = await res.json();
-        if (data && data.item) {
-          if (data.item.id) {
-            this.lastTrackId = data.item.id;
-          }
-          this.lastPlaybackState = data;
-          return { data, status: 200, latencyMs };
+        const token = await this.ensureValidToken();
+        if (!token) {
+          throw new Error("NOT_AUTHENTICATED: Please connect your Spotify account.");
         }
-      } catch {}
-    }
 
-    if (res.status === 204) {
-      const emptyData = {
-        is_playing: false,
-        item: null,
-        progress_ms: 0,
-      };
-      this.lastPlaybackState = emptyData;
-      return {
-        data: emptyData,
-        status: 204,
-        latencyMs,
-      };
-    }
+        const start = performance.now();
+        let res = await fetch("https://api.spotify.com/v1/me/player", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    return {
-      data: this.lastPlaybackState || {
-        is_playing: false,
-        item: null,
-        progress_ms: 0,
-      },
-      status: res.status,
-      latencyMs,
+        if (res.status === 401) {
+          const refreshed = await this.tryAutoRefreshToken();
+          if (refreshed && this.accessToken) {
+            res = await fetch("https://api.spotify.com/v1/me/player", {
+              headers: { Authorization: `Bearer ${this.accessToken}` },
+            });
+          }
+        }
+
+        const latencyMs = Math.round(performance.now() - start);
+        this.lastNowPlayingTime = Date.now();
+
+        if (res.status === 429) {
+          this.handleRateLimitResponse(res);
+          return {
+            data: this.lastPlaybackState || {
+              is_playing: false,
+              item: null,
+              progress_ms: 0,
+            },
+            status: 429,
+            latencyMs,
+          };
+        }
+
+        if (res.ok && res.status === 200) {
+          try {
+            const data = await res.json();
+            if (data && data.item) {
+              if (data.item.id) {
+                this.lastTrackId = data.item.id;
+              }
+              this.lastPlaybackState = data;
+              return { data, status: 200, latencyMs };
+            }
+          } catch {}
+        }
+
+        if (res.status === 204) {
+          const emptyData = {
+            is_playing: false,
+            item: null,
+            progress_ms: 0,
+          };
+          this.lastPlaybackState = emptyData;
+          return {
+            data: emptyData,
+            status: 204,
+            latencyMs,
+          };
+        }
+
+        return {
+          data: this.lastPlaybackState || {
+            is_playing: false,
+            item: null,
+            progress_ms: 0,
+          },
+          status: res.status,
+          latencyMs,
+        };
+      } finally {
+        this.inFlightNowPlaying = null;
+      }
     };
+
+    this.inFlightNowPlaying = executeFetch();
+    return this.inFlightNowPlaying;
   }
 
   public async fetchNewTrackAfterSkip(
