@@ -1024,26 +1024,6 @@ pub fn run() {
 
             let _tray = tray_builder.build(app)?;
 
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-                loop {
-                    interval.tick().await;
-                    let main_visible = app_handle
-                        .get_webview_window("main")
-                        .and_then(|w| w.is_visible().ok())
-                        .unwrap_or(false);
-                    let overlay_visible = app_handle
-                        .get_webview_window("overlay")
-                        .and_then(|w| w.is_visible().ok())
-                        .unwrap_or(false);
-
-                    if !main_visible && !overlay_visible {
-                        trim_working_set_memory();
-                    }
-                }
-            });
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

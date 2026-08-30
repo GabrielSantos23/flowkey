@@ -177,13 +177,17 @@ export const NowPlayingDynamicIsland: React.FC<
               repeat_state: res.data.repeat_state,
               timestamp: Date.now(),
             };
-            setSavedSpotify(saved);
-            try {
-              localStorage.setItem(
-                "flowkey_last_spotify_playback",
-                JSON.stringify(saved),
-              );
-            } catch {}
+            setSavedSpotify((prev) => {
+              if (prev?.item?.id !== res.data?.item?.id) {
+                try {
+                  localStorage.setItem(
+                    "flowkey_last_spotify_playback",
+                    JSON.stringify(saved),
+                  );
+                } catch {}
+              }
+              return saved;
+            });
           } else {
             setPlaybackState(null);
           }
@@ -276,9 +280,9 @@ export const NowPlayingDynamicIsland: React.FC<
     fetchState(true);
   }, [fetchState]);
 
-  // Client-side progress bar extrapolation (150ms interval, only while visible & playing)
+  // Client-side progress bar extrapolation (only while expanded, visible & playing)
   useEffect(() => {
-    if (!isVisible || !isPlaying) return;
+    if (!isVisible || !isPlaying || !isExpanded) return;
 
     const timer = setInterval(() => {
       const { baseMs, timestamp, isPlaying: anchorPlaying, durationMs: anchorDur } =
@@ -339,10 +343,10 @@ export const NowPlayingDynamicIsland: React.FC<
       } else {
         setDisplayProgressMs(baseMs);
       }
-    }, 150);
+    }, 500);
 
     return () => clearInterval(timer);
-  }, [fetchState, isVisible, isPlaying, isSpotifyActive, track?.id]);
+  }, [fetchState, isVisible, isPlaying, isExpanded, isSpotifyActive, track?.id]);
 
   // Real-time Windows GSMTC Polling (800ms local Win32 call, 0 network requests)
   useEffect(() => {
@@ -366,11 +370,16 @@ export const NowPlayingDynamicIsland: React.FC<
 
           if (native.duration_ms && native.duration_ms > 0) {
             const currentAnchor = progressAnchorRef.current;
-            const drift = Math.abs(currentAnchor.baseMs - (native.position_ms || 0));
+            const elapsed = currentAnchor.isPlaying
+              ? Date.now() - currentAnchor.timestamp
+              : 0;
+            const estimatedCurrent = currentAnchor.baseMs + elapsed;
+            const drift = Math.abs(estimatedCurrent - (native.position_ms || 0));
+
             if (
               currentAnchor.durationMs !== native.duration_ms ||
               currentAnchor.isPlaying !== Boolean(native.is_playing) ||
-              drift > 2000
+              drift > 2500
             ) {
               progressAnchorRef.current = {
                 baseMs: native.position_ms || 0,
@@ -378,6 +387,9 @@ export const NowPlayingDynamicIsland: React.FC<
                 isPlaying: Boolean(native.is_playing),
                 durationMs: native.duration_ms,
               };
+              if (isExpanded) {
+                setDisplayProgressMs(native.position_ms || 0);
+              }
             }
           }
         }
@@ -387,21 +399,20 @@ export const NowPlayingDynamicIsland: React.FC<
     pollNative();
     const interval = setInterval(pollNative, 800);
     return () => clearInterval(interval);
-  }, [isVisible]);
+  }, [isVisible, isExpanded]);
 
-  // Reconciliation polling (25s when playing, 60s when paused)
+  // Reconciliation polling (60s background sanity check)
   useEffect(() => {
     if (!isVisible) return;
 
-    const reconciliationIntervalMs = isPlaying ? 25000 : 60000;
     const interval = setInterval(() => {
       fetchState(false);
-    }, reconciliationIntervalMs);
+    }, 60000);
 
     return () => {
       clearInterval(interval);
     };
-  }, [fetchState, isPlaying, isVisible]);
+  }, [fetchState, isVisible]);
 
   // Global overlay trigger & cross-window sync listener
   useEffect(() => {
