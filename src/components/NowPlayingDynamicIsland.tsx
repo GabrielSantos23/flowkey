@@ -580,19 +580,6 @@ export const NowPlayingDynamicIsland: React.FC<
 
   const handleNext = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const previousTrackId = track?.id;
-
-    // 0ms Optimistic Queue Pop!
-    if (isSpotifyActive && spotifyService.isAuthenticated()) {
-      const nextTrack = spotifyService.popNextFromQueue();
-      if (nextTrack) {
-        setPlaybackState((prev) =>
-          prev
-            ? { ...prev, item: nextTrack, progress_ms: 0, is_playing: true }
-            : { is_playing: true, item: nextTrack, progress_ms: 0 }
-        );
-      }
-    }
 
     progressAnchorRef.current = {
       baseMs: 0,
@@ -603,38 +590,26 @@ export const NowPlayingDynamicIsland: React.FC<
     setDisplayProgressMs(0);
     trackEndedHandledRef.current = false;
 
-    // 1. Immediately poll Windows GSMTC for 0ms metadata update
-    setTimeout(async () => {
-      try {
-        const native = await getNativeMediaInfo();
-        if (native && native.title) {
-          setNativeInfo(native);
-        }
-      } catch {}
-    }, 50);
-
     try {
-      if (isSpotifyActive && spotifyService.isAuthenticated()) {
-        spotifyService.nextTrack().catch((err) => {
-          console.warn("Next track error:", err);
-        });
-        spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
-          if (newItem) {
-            fetchState(true);
-          }
-        });
-        return;
-      }
       await invoke("native_next_track");
-      setTimeout(() => fetchState(true), 350);
+
+      setTimeout(async () => {
+        try {
+          const native = await getNativeMediaInfo();
+          if (native && native.title) {
+            setNativeInfo(native);
+          }
+        } catch {}
+      }, 50);
     } catch (err) {
-      console.error("Next error:", err);
+      if (spotifyService.isAuthenticated()) {
+        spotifyService.nextTrack().catch(() => {});
+      }
     }
   };
 
   const handlePrev = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const previousTrackId = track?.id;
 
     progressAnchorRef.current = {
       baseMs: 0,
@@ -645,32 +620,21 @@ export const NowPlayingDynamicIsland: React.FC<
     setDisplayProgressMs(0);
     trackEndedHandledRef.current = false;
 
-    // 1. Immediately poll Windows GSMTC for 0ms metadata update
-    setTimeout(async () => {
-      try {
-        const native = await getNativeMediaInfo();
-        if (native && native.title) {
-          setNativeInfo(native);
-        }
-      } catch {}
-    }, 60);
-
     try {
-      if (isSpotifyActive && spotifyService.isAuthenticated()) {
-        spotifyService.previousTrack().catch((err) => {
-          console.warn("Prev track error:", err);
-        });
-        spotifyService.fetchNewTrackAfterSkip(previousTrackId).then((newItem) => {
-          if (newItem) {
-            fetchState(true);
-          }
-        });
-        return;
-      }
       await invoke("native_prev_track");
-      setTimeout(() => fetchState(true), 350);
+
+      setTimeout(async () => {
+        try {
+          const native = await getNativeMediaInfo();
+          if (native && native.title) {
+            setNativeInfo(native);
+          }
+        } catch {}
+      }, 50);
     } catch (err) {
-      console.error("Prev error:", err);
+      if (spotifyService.isAuthenticated()) {
+        spotifyService.previousTrack().catch(() => {});
+      }
     }
   };
 
