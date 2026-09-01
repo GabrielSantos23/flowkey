@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-island-bg: #000000;
+    --color-widget-bg: rgba(255, 255, 255, 0.08);
+    --color-primary: #6988b7;
+    --color-secondary: #061122;
+    --color-text-main: #ffffff;
+    --color-text-second: #a6a6a6;
+    --color-text-third: #595959;
+    --color-success: #bad844;
+    --color-error: #d84444;
+    --color-icon: #ffffff;
+  }
+
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-app-region: no-drag;
+    background-color: transparent;
+    overflow: hidden;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.glow-border {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 15px -3px rgba(0, 0, 0, 0.5);
+}

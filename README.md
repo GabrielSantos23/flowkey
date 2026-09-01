@@ -1,36 +1,100 @@
-# DynamicWin
+# FlowKey
 
 <p align="center">
-  <img src="https://img.shields.io/badge/c%23-%23239120.svg?style=for-the-badge&logo=csharp&logoColor=white">
-  <a href="https://creativecommons.org/licenses/by-sa/4.0/"><img src="https://img.shields.io/static/v1?label=License&message=CC+BY-SA+4.0&color=%23c49b04&style=for-the-badge"></a>
-  <a href="https://discord.gg/UHFuqB9NqR"><img src="https://dcbadge.limes.pink/api/server/https://discord.gg/UHFuqB9NqR)](https://discord.gg/UHFuqB9NqR"></a>
+  <img src="https://img.shields.io/badge/Rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white">
+  <img src="https://img.shields.io/badge/Tauri-2.0-%2324C8D8.svg?style=for-the-badge&logo=tauri&logoColor=white">
+  <img src="https://img.shields.io/badge/React-18-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB">
+  <img src="https://img.shields.io/badge/TypeScript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white">
+  <img src="https://img.shields.io/badge/Tailwind_CSS-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white">
 </p>
-
-<p align="center">
-  <img src="ReadmeFiles/preview.gif" style="border-radius:15px" alt="animated" width="1000" height="auto" />
-</p>
-
-<p xmlns:cc="http://creativecommons.org/ns#" xmlns:dct="http://purl.org/dc/terms/"><a property="dct:title" rel="cc:attributionURL" href="https://github.com/FlorianButz/DynamicWin">DynamicWin</a> by <a rel="cc:attributionURL dct:creator" property="cc:attributionName" href="https://github.com/FlorianButz">Florian Butz</a> is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/?ref=chooser-v1" target="_blank" rel="license noopener noreferrer" style="display:inline-block;">CC BY-SA 4.0<img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src="https://mirrors.creativecommons.org/presskit/icons/cc.svg?ref=chooser-v1" alt=""><img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src="https://mirrors.creativecommons.org/presskit/icons/by.svg?ref=chooser-v1" alt=""><img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src="https://mirrors.creativecommons.org/presskit/icons/sa.svg?ref=chooser-v1" alt=""></a></p>
 
 ### What is it?
-A [Dynamic Island](https://support.apple.com/de-de/guide/iphone/iph28f50d10d/ios) inspired Windows App that brings in a bunch of features like widgets or a file tray that works like a clipboard.
-Similar to dynamic notches that you can find on macOS like [NotchNook](https://lo.cafe/notchnook), this application brings the concept on Windows devices to life.
+A [Dynamic Island](https://support.apple.com/en-us/guide/iphone/iph28f50d10d/ios) and macOS Dynamic Notch inspired desktop overlay built with **Tauri 2 (Rust) + React (TypeScript + Framer Motion + Tailwind CSS)**.
 
-This project was made possible with [**FenUI**](https://github.com/FlorianButz/fenUISharp)
+FlowKey brings widgets, music controls, system telemetry, and an interactive file tray clipboard directly into a sleek, physics-animated floating island or top-anchored notch. Cross-platform support for **Linux (KDE / GNOME / Wayland / X11)** and **Windows (10 / 11)**.
 
-# Features
-- A media controller
-- - Favorites
-- A calendar with Google Calendar integration
-- File Tray
-- - Files inside the Tray can be executed (e.g. a shortcut) with a double click
-- - Files can be shared using the Windows File Share dialog
-- - Files can be stored in the Tray for later use
-- - ~~Shaking a currently dragged file will open a quick drop popup~~ (This had to be cut due to massive performance issues)
-- Bluetooth view which shows the connected device and battery
-- Activity system (Currently includes media player and BT view)
-- - Spring notches (let you see or open an action which is not the current view)
-- Swapping between views can be done by scrolling
-- Auto updater
+---
 
-> [!NOTE] This repository currently only exists to host the releases. There is no source code here. 
+## ✨ Features
+
+- **🏝️ Dynamic Island & Notch Modes**:
+  - Floating pill (Dynamic Island) or top-anchored notch with smooth Bézier curvature (MacBook Notch).
+  - Physics-based spring animations with second-order dynamics and backdrop glassmorphism.
+- **🎵 Media Controller & Spectrum Visualizer**:
+  - Live track, artist, album, and status from Spotify and system media players.
+  - Interactive playback controls (Play/Pause, Previous, Next).
+  - Real-time animated audio frequency visualizer spectrum.
+- **🌦️ Live Weather & Forecast**:
+  - Automatic geolocation lookup via Geo-IP and Open-Meteo API.
+  - Temperature display with one-click °C / °F switching and location privacy toggle.
+- **⏱️ Digital Stopwatch & Countdown Timer**:
+  - Interactive time steppers with up/down controls.
+  - Timer Over alert HUD overlay with audio chime synthesis.
+- **🚀 Quick Launch Shortcuts**:
+  - 4 customizable slots for launching applications, folders, scripts, or web URLs.
+- **📁 File Tray Clipboard**:
+  - Drag and drop files directly onto the island to store them in your local tray clipboard.
+  - Open files in default programs, reveal in system file manager, or remove items.
+- **📊 System Telemetry (Small Widgets)**:
+  - Real-time CPU % load and RAM GB usage via Rust `sysinfo`.
+  - Battery percentage, charging indicators, and AC power status.
+  - Microphone & Webcam activity detection dots.
+  - Digital clock and active countdown timer pill.
+- **🎨 Customization & Theme Engine**:
+  - Built-in presets: **Dark**, **Light**, **Candy**, **Forest Dawn**, **Sunset Glow**.
+  - Live Custom JSON Theme palette editor with real-time CSS variable injection.
+  - Custom slot manager to position small widgets on Left, Middle, or Right sections.
+
+---
+
+## 🛠️ Development & Getting Started
+
+### Prerequisites
+- [Rust](https://www.rust-lang.org/) (1.78+)
+- [Node.js](https://nodejs.org/) or [Bun](https://bun.sh/)
+- System dependencies:
+  - **Linux (Debian/Ubuntu)**: `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev`
+  - **Linux (Arch)**: `sudo pacman -S webkit2gtk-4.1 base-devel curl wget openssl gtk3 libayatana-appindicator`
+  - **Windows / macOS**: Supported out of the box.
+
+### Quick Start
+
+```bash
+# 1. Install dependencies
+bun install
+# or: npm install
+
+# 2. Run in development mode
+bun run tauri dev
+# or: npm run tauri dev
+
+# 3. Build standalone binary
+bun run tauri build
+# or: npm run tauri build
+```
+
+---
+
+## 📂 Project Structure
+
+```
+├── public/                 # Assets (audio chimes, icons, fonts)
+│   ├── icons/
+│   └── sounds/
+├── src/                    # React Frontend
+│   ├── components/         # Dynamic Island, Notch curves, overlays
+│   │   ├── overlays/       # Volume, Brightness, Timer Over, Drop zone
+│   │   ├── settings/       # Settings modal, Theme editor, Slot manager
+│   │   ├── tray/           # File Tray clipboard
+│   │   └── widgets/        # Small & Big widgets (Media, Weather, Timer, Shortcuts)
+│   ├── context/            # Theme & Settings providers
+│   ├── types/              # TypeScript definitions
+│   └── utils/              # Sound synthesis & theme presets
+└── src-tauri/              # Rust Backend
+    ├── capabilities/       # Tauri v2 security & permissions
+    ├── src/
+    │   ├── commands/       # Hardware, Battery, Media, Weather, Tray, Shortcuts, Settings
+    │   ├── lib.rs          # Tauri plugins, System Tray, command handlers
+    │   └── main.rs         # Application entry point
+    └── tauri.conf.json     # Window, transparent overlay, and tray config
+```
