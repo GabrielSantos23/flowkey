@@ -212,15 +212,15 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
   }, [targetLang, languages]);
 
   return (
-    <div className="w-[580px] h-[250px] flex flex-col bg-[#141416]/95 backdrop-blur-3xl text-neutral-200 select-none overflow-hidden rounded-[24px] border border-white/5 shadow-2xl relative">
+    <div className="w-[580px] h-[250px] flex flex-col bg-card/95 backdrop-blur-3xl text-card-foreground select-none overflow-hidden rounded-[24px] border border-border shadow-2xl relative">
       {/* Error alert toast if any */}
       {errorMsg && (
-        <div className="absolute top-2 inset-x-2 z-40 flex items-center justify-between px-3 py-1.5 rounded-xl bg-red-500/90 backdrop-blur-md text-xs text-white shadow-lg">
+        <div className="absolute top-2 inset-x-2 z-40 flex items-center justify-between px-3 py-1.5 rounded-xl bg-destructive/90 backdrop-blur-md text-xs text-destructive-foreground shadow-lg">
           <div className="flex items-center gap-2 truncate">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="truncate">{errorMsg}</span>
           </div>
-          <button onClick={() => setErrorMsg(null)} className="p-0.5 hover:bg-white/20 rounded">
+          <button onClick={() => setErrorMsg(null)} className="p-0.5 hover:bg-destructive-foreground/20 rounded">
             <X className="w-3 h-3" />
           </button>
         </div>
@@ -230,7 +230,7 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-auto">
         <button
           onClick={handleSwapLanguages}
-          className="w-8 h-8 rounded-full bg-[#1c1c1f] hover:bg-neutral-800 active:scale-90 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white shadow-xl transition-all"
+          className="w-8 h-8 rounded-full bg-card hover:bg-muted active:scale-90 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground shadow-xl transition-all"
           title="Swap Languages"
         >
           <ArrowLeftRight className="w-3.5 h-3.5" />
@@ -240,7 +240,7 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
       {/* Main Split Layout: 50% Left, 50% Right */}
       <div className="flex-1 grid grid-cols-2 h-full w-full">
         {/* LEFT PANEL (Input) */}
-        <div className="flex flex-col justify-between bg-black/20 p-3.5 pr-5 border-r border-white/5 relative h-full">
+        <div className="flex flex-col justify-between bg-muted/20 p-3.5 pr-5 border-r border-border relative h-full">
           {/* Top Row: Source Language Dropdown */}
           <div className="flex items-center gap-2 z-20" data-select-container="true">
             <Select
@@ -249,24 +249,24 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
                 if (val) handleSourceLangChange(val);
               }}
             >
-              <SelectTrigger className="h-7 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 text-xs font-semibold text-neutral-200 hover:text-white min-w-[130px] transition-all shadow-sm outline-none">
+              <SelectTrigger className="h-7 px-2.5 py-1 rounded-xl bg-background hover:bg-muted active:scale-95 border border-input text-xs font-semibold text-foreground min-w-[130px] transition-all shadow-sm outline-none">
                 <SelectValue placeholder="Source Language">
                   {sourceLangLabel}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent className="bg-[#18181b]/95 backdrop-blur-2xl border border-white/10 text-white rounded-xl shadow-2xl max-h-56 overflow-y-auto custom-scrollbar p-1 z-50 min-w-[160px]">
+              <SelectContent className="bg-popover/95 backdrop-blur-2xl border border-border text-popover-foreground rounded-xl shadow-2xl max-h-56 overflow-y-auto custom-scrollbar p-1 z-50 min-w-[160px]">
                 <SelectItem
                   value="AUTO"
-                  className="text-xs text-neutral-300 hover:bg-white/10 hover:text-white focus:bg-white focus:text-black focus:font-semibold rounded-lg px-2 py-1.5 cursor-pointer"
+                  className="text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus:bg-accent focus:text-accent-foreground rounded-lg px-2 py-1.5 cursor-pointer"
                 >
                   Auto Detect
                 </SelectItem>
-                <SelectSeparator className="my-1 bg-white/10" />
+                <SelectSeparator className="my-1 bg-border" />
                 {languages.map((l) => (
                   <SelectItem
                     key={l.code}
                     value={l.code}
-                    className="text-xs text-neutral-300 hover:bg-white/10 hover:text-white focus:bg-white focus:text-black focus:font-semibold rounded-lg px-2 py-1.5 cursor-pointer"
+                    className="text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus:bg-accent focus:text-accent-foreground rounded-lg px-2 py-1.5 cursor-pointer"
                   >
                     {l.name}
                   </SelectItem>
@@ -282,17 +282,17 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
               value={inputText}
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder="Enter text..."
-              className="w-full h-full bg-transparent text-sm text-neutral-100 placeholder-neutral-500 resize-none outline-none leading-relaxed custom-scrollbar"
+              className="w-full h-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none outline-none leading-relaxed custom-scrollbar"
               autoFocus
             />
           </div>
 
           {/* Bottom Row: Speaker icon + Clear button */}
-          <div className="flex items-center justify-between text-neutral-400">
+          <div className="flex items-center justify-between text-muted-foreground">
             <button
               onClick={() => speakText(inputText, sourceLang)}
               disabled={!inputText.trim()}
-              className="p-1 rounded-lg hover:bg-white/10 active:scale-90 disabled:opacity-30 disabled:pointer-events-none text-neutral-400 hover:text-white transition-all"
+              className="p-1 rounded-lg hover:bg-muted active:scale-90 disabled:opacity-30 disabled:pointer-events-none text-muted-foreground hover:text-foreground transition-all"
               title="Listen (Text-to-Speech)"
             >
               <Volume2 className="w-4 h-4" />
@@ -306,7 +306,7 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
                   setDetectedLang(null);
                   setErrorMsg(null);
                 }}
-                className="p-1 rounded-lg hover:bg-white/10 text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                 title="Clear text"
               >
                 <X className="w-3.5 h-3.5" />
@@ -316,7 +316,7 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
         </div>
 
         {/* RIGHT PANEL (Translation Output) */}
-        <div className="flex flex-col justify-between bg-black/10 p-3.5 pl-5 relative h-full">
+        <div className="flex flex-col justify-between bg-muted/10 p-3.5 pl-5 relative h-full">
           {/* Top Row: Target Language Dropdown + Usage */}
           <div className="flex items-center justify-between z-20">
             <div data-select-container="true">
@@ -326,17 +326,17 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
                   if (val) handleTargetLangChange(val);
                 }}
               >
-                <SelectTrigger className="h-7 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 text-xs font-semibold text-neutral-200 hover:text-white min-w-[130px] transition-all shadow-sm outline-none">
+                <SelectTrigger className="h-7 px-2.5 py-1 rounded-xl bg-background hover:bg-muted active:scale-95 border border-input text-xs font-semibold text-foreground min-w-[130px] transition-all shadow-sm outline-none">
                   <SelectValue placeholder="Target Language">
                     {targetLangLabel}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="bg-[#18181b]/95 backdrop-blur-2xl border border-white/10 text-white rounded-xl shadow-2xl max-h-56 overflow-y-auto custom-scrollbar p-1 z-50 min-w-[160px]">
+                <SelectContent className="bg-popover/95 backdrop-blur-2xl border border-border text-popover-foreground rounded-xl shadow-2xl max-h-56 overflow-y-auto custom-scrollbar p-1 z-50 min-w-[160px]">
                   {languages.map((l) => (
                     <SelectItem
                       key={l.code}
                       value={l.code}
-                      className="text-xs text-neutral-300 hover:bg-white/10 hover:text-white focus:bg-white focus:text-black focus:font-semibold rounded-lg px-2 py-1.5 cursor-pointer"
+                      className="text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus:bg-accent focus:text-accent-foreground rounded-lg px-2 py-1.5 cursor-pointer"
                     >
                       {l.name}
                     </SelectItem>
@@ -348,10 +348,10 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
             {/* Usage Status Dot */}
             {usage && (
               <div
-                className="flex items-center gap-1.5 text-xs font-medium text-neutral-500"
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
                 title={`${usage.character_count.toLocaleString()} / ${usage.character_limit.toLocaleString()} chars used this month`}
               >
-                <span className={`w-2 h-2 rounded-full ${usage.is_limit_reached ? "bg-red-500" : "bg-[#00E640]"}`} />
+                <span className={`w-2 h-2 rounded-full ${usage.is_limit_reached ? "bg-destructive" : "bg-primary"}`} />
                 <span>{(usage.character_count / 1000).toFixed(1)}k/50k</span>
               </div>
             )}
@@ -364,23 +364,23 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
             className="flex-1 my-2 overflow-y-auto custom-scrollbar text-sm leading-relaxed select-text"
           >
             {isLoading ? (
-              <div className="flex items-center gap-2 text-neutral-500 pt-1">
-                <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+              <div className="flex items-center gap-2 text-muted-foreground pt-1">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                 <span className="text-sm">Translating...</span>
               </div>
             ) : outputText ? (
-              <p className="text-neutral-100 select-text whitespace-pre-wrap">{outputText}</p>
+              <p className="text-foreground select-text whitespace-pre-wrap">{outputText}</p>
             ) : (
-              <span className="text-neutral-500 text-sm select-none">Translation</span>
+              <span className="text-muted-foreground text-sm select-none">Translation</span>
             )}
           </div>
 
           {/* Bottom Row: Speaker icon + Copy button */}
-          <div className="flex items-center justify-between text-neutral-400">
+          <div className="flex items-center justify-between text-muted-foreground">
             <button
               onClick={() => speakText(outputText, targetLang)}
               disabled={!outputText}
-              className="p-1 rounded-lg hover:bg-white/10 active:scale-90 disabled:opacity-30 disabled:pointer-events-none text-neutral-400 hover:text-white transition-all"
+              className="p-1 rounded-lg hover:bg-muted active:scale-90 disabled:opacity-30 disabled:pointer-events-none text-muted-foreground hover:text-foreground transition-all"
               title="Listen (Text-to-Speech)"
             >
               <Volume2 className="w-4 h-4" />
@@ -389,13 +389,13 @@ export const TranslateExpandedWidget: React.FC<TranslateExpandedWidgetProps> = (
             <button
               onClick={handleCopyOutput}
               disabled={!outputText}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/10 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-neutral-400 hover:text-white transition-all text-xs"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-muted active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-muted-foreground hover:text-foreground transition-all text-xs"
               title="Copy translation"
             >
               {isCopied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-[#00E640]" />
-                  <span className="text-[#00E640] font-semibold text-xs">Copied</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400 font-semibold text-xs">Copied</span>
                 </>
               ) : (
                 <>

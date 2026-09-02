@@ -15,6 +15,7 @@ export interface AppSettings {
   volume_popup: boolean;
   brightness_popup: boolean;
   is_hidden: boolean;
+  spotify_search_hotkey?: string;
 }
 
 export interface ThemeHolder {
@@ -179,5 +180,6 @@ export type OverlayType =
   | "drop-file"
   | "drop-localsend"
   | "tray-saving"
-  | "tray-confirmed";
+  | "tray-confirmed"
+  | "spotify-search";
 export type ViewMode = "spotify" | "pomodoro" | "tray" | "clipboard" | "translate";

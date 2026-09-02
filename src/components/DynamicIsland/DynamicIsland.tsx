@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 
 
@@ -23,6 +24,8 @@ import { TimerOverOverlay } from "../overlays/TimerOverOverlay";
 import { DropFileOverlay } from "../overlays/DropFileOverlay";
 import { DropLocalSendOverlay } from "../overlays/DropLocalSendOverlay";
 import { PomodoroBubbleWidget } from "../widgets/small/PomodoroBubbleWidget";
+import { SpotifySearchWidget } from "../widgets/big/spotifySearch/SpotifySearchWidget";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 
 
@@ -48,6 +51,7 @@ export const DynamicIsland: React.FC = () => {
   const [confirmationToast, setConfirmationToast] = useState<{ text: string; type: "in" | "out" } | null>(null);
 
   const [isWheelPreviewing, setIsWheelPreviewing] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const wheelPreviewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,14 +72,27 @@ export const DynamicIsland: React.FC = () => {
   useEffect(() => { hoveredFingerprintRef.current = hoveredFingerprint; }, [hoveredFingerprint]);
   useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
 
+  useEffect(() => {
+    if (activeOverlay !== "spotify-search") {
+      setIsSearchExpanded(false);
+    }
+  }, [activeOverlay]);
+
   // Derived states
   const activeTransferList = Object.values(activeTransfers);
   const currentTransfer = activeTransferList.length > 0 ? activeTransferList[0] : null;
-  const isExpanded = (isOpen || isLockedOpen) && activeOverlay === "none" && !incomingTransfer && !currentTransfer;
+  const isExpanded =
+    (isOpen || isLockedOpen) && activeOverlay === "none" && !incomingTransfer && !currentTransfer;
+  const isExpandedRef = useRef(isExpanded);
+  isExpandedRef.current = isExpanded;
   const isPomodoroActive = pomodoro.isRunning || (pomodoro.isPaused && pomodoro.timeRemaining > 0);
+  const isPomodoroActiveRef = useRef(isPomodoroActive);
+  isPomodoroActiveRef.current = isPomodoroActive;
 
   // Extracted Custom Hooks
   const { media, fetchMedia } = useMediaStats();
+  const mediaRef = useRef(media);
+  mediaRef.current = media;
   const isDualActive = media.is_playing && isPomodoroActive;
 
   // Auto-switch to active widget when started by user
@@ -109,7 +126,7 @@ export const DynamicIsland: React.FC = () => {
   useIslandMask({
     isSettingsOpen, activeOverlay, incomingTransfer, currentTransfer, isExpanded,
     viewMode, isQueueOpen, isDualActive, isPlaying: media.is_playing, isPomodoroActive,
-    showIdleClock
+    showIdleClock, isWheelPreviewing, isSearchExpanded
   });
 
   useEffect(() => {
@@ -219,15 +236,86 @@ export const DynamicIsland: React.FC = () => {
   // Click outside and Queue handlers
   useEffect(() => { if (!isOpen) setIsQueueOpen(false); }, [isOpen]);
 
+  const lastSearchToggleRef = useRef<number>(0);
+
+  const toggleSpotifySearch = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSearchToggleRef.current < 300) {
+      return;
+    }
+    lastSearchToggleRef.current = now;
+    console.log("[FLOWKEY] Toggling spotify-search overlay!");
+    getCurrentWindow().setFocus().catch(() => {});
+    setActiveOverlay((prev) => (prev === "spotify-search" ? "none" : "spotify-search"));
+  }, []);
+
+  // Global shortcut event listener for Spotify Search widget
   useEffect(() => {
-    if (!isOpen || isLockedOpen) return;
+    let unlisten: UnlistenFn | undefined;
+    listen("toggle-spotify-search", () => {
+      toggleSpotifySearch();
+    }).then((fn: UnlistenFn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [toggleSpotifySearch]);
+
+  // In-window keydown listener as immediate responsive fallback
+  useEffect(() => {
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
+      const hotkey = settings.spotify_search_hotkey || "Alt+F";
+      const parts = hotkey.toLowerCase().split("+").map((s) => s.trim());
+      const needsAlt = parts.includes("alt");
+      const needsCtrl = parts.includes("ctrl") || parts.includes("control");
+      const needsShift = parts.includes("shift");
+      const keyPart = parts.find((p) => p !== "alt" && p !== "ctrl" && p !== "control" && p !== "shift") || "f";
+
+      const matchesAlt = needsAlt === e.altKey;
+      const matchesCtrl = needsCtrl === e.ctrlKey;
+      const matchesShift = needsShift === e.shiftKey;
+      const matchesKey = e.key.toLowerCase() === keyPart || e.code.toLowerCase() === `key${keyPart}`;
+
+      if (matchesAlt && matchesCtrl && matchesShift && matchesKey) {
+        e.preventDefault();
+        toggleSpotifySearch();
+      }
+    };
+    window.addEventListener("keydown", handleWindowKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown);
+    };
+  }, [settings.spotify_search_hotkey, toggleSpotifySearch]);
+
+  // Synchronize backend global shortcut registration with settings
+  useEffect(() => {
+    const rawHotkey = settings.spotify_search_hotkey?.trim() || "Alt+F";
+    const cleanHotkey = rawHotkey.replace(/\s+/g, "");
+
+    invoke("register_spotify_search_hotkey", { hotkey: cleanHotkey }).catch((err) => {
+      console.warn("Backend register_spotify_search_hotkey error:", err);
+    });
+  }, [settings.spotify_search_hotkey]);
+
+  useEffect(() => {
+    if ((!isOpen && activeOverlay !== "spotify-search") || isLockedOpen) return;
     const handlePointerDown = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
         setIsQueueOpen(false);
+        if (activeOverlayRef.current === "spotify-search") {
+          setActiveOverlay("none");
+        }
       }
     };
-    const handleBlur = () => { setIsOpen(false); setIsQueueOpen(false); };
+    const handleBlur = () => {
+      setIsOpen(false);
+      setIsQueueOpen(false);
+      // Note: Do not close spotify-search on blur so window focus switches don't instantly dismiss it
+    };
 
     window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("blur", handleBlur);
@@ -235,14 +323,20 @@ export const DynamicIsland: React.FC = () => {
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [isLockedOpen, isOpen]);
+  }, [isLockedOpen, isOpen, activeOverlay]);
 
-  const openIsland = (targetMode: ViewMode) => { setViewMode(targetMode); setIsQueueOpen(false); setIsOpen(true); };
+  const openIsland = (targetMode: ViewMode) => {
+    if (wheelPreviewTimeoutRef.current) clearTimeout(wheelPreviewTimeoutRef.current);
+    setIsWheelPreviewing(false);
+    setViewMode(targetMode);
+    setIsQueueOpen(false);
+    setIsOpen(true);
+  };
 
   const handleWheel = (e: React.WheelEvent) => {
     const target = e.target as HTMLElement | null;
-    // Disable tab switching only when mouse is inside a select component or open dropdown
-    if (target?.closest('[data-slot="select-trigger"], [data-slot="select-content"], [data-slot="select-item"], [data-slot="select-group"], [data-slot="select-value"], [data-slot="select-label"], [data-slot="select-separator"], [data-slot="select-scroll-up-button"], [data-slot="select-scroll-down-button"], [data-select-container]')) {
+    // Disable tab switching only when mouse is inside a select component or open dropdown or scrollable lyrics
+    if (target?.closest('[data-slot="select-trigger"], [data-slot="select-content"], [data-slot="select-item"], [data-slot="select-group"], [data-slot="select-value"], [data-slot="select-label"], [data-slot="select-separator"], [data-slot="select-scroll-up-button"], [data-slot="select-scroll-down-button"], [data-select-container], [data-lyrics-container], [data-scrollable="true"]')) {
       return;
     }
 
@@ -268,11 +362,18 @@ export const DynamicIsland: React.FC = () => {
     }
     setViewMode(nextMode);
 
-    // Show temporary preview of the selected widget on scroll, then revert to clock after 3.5s if idle
+    // Show temporary preview of the selected widget on scroll, then revert to active widget/clock after 3.5s if idle
     setIsWheelPreviewing(true);
     if (wheelPreviewTimeoutRef.current) clearTimeout(wheelPreviewTimeoutRef.current);
     wheelPreviewTimeoutRef.current = setTimeout(() => {
       setIsWheelPreviewing(false);
+      if (!isExpandedRef.current) {
+        if (mediaRef.current.is_playing) {
+          setViewMode("spotify");
+        } else if (isPomodoroActiveRef.current) {
+          setViewMode("pomodoro");
+        }
+      }
     }, 3500);
   };
 
@@ -336,83 +437,127 @@ export const DynamicIsland: React.FC = () => {
       className="fixed inset-x-0 top-0 flex flex-col items-center pointer-events-none z-40 select-none"
       onContextMenu={(e) => { e.preventDefault(); try { invoke("open_settings_window"); } catch {} }}
     >
-      <div className="flex items-center gap-2">
-        <motion.div
-          ref={containerRef}
-          layout
-          onWheel={handleWheel}
-          onDragEnter={handleDragEnter}
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (activeOverlayRef.current === "none") triggerOverlay("drop-file", 5000);
-          }}
-          onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-              if (activeOverlayRef.current === "drop-file") {
-                setActiveOverlay("none");
+      {activeOverlay === "spotify-search" ? (
+        <div className="flex items-center justify-center pointer-events-auto" ref={containerRef}>
+          <motion.div
+            layout
+            transition={springTransition}
+            style={{
+              transformOrigin: "top center",
+              backgroundColor: "var(--card)",
+              boxShadow: isSearchExpanded
+                ? "0 25px 50px -10px rgba(0, 0, 0, 0.75)"
+                : "0 8px 20px -4px rgba(0, 0, 0, 0.5)",
+              borderTopLeftRadius: isNotch ? 0 : isSearchExpanded ? 36 : 9999,
+              borderTopRightRadius: isNotch ? 0 : isSearchExpanded ? 36 : 9999,
+              borderBottomLeftRadius: isSearchExpanded ? 36 : isNotch ? 20 : 9999,
+              borderBottomRightRadius: isSearchExpanded ? 36 : isNotch ? 20 : 9999,
+            }}
+            className={`relative flex flex-col items-center border-0 origin-top ${
+              isSearchExpanded && settings.allow_blur ? "backdrop-blur-2xl" : ""
+            } ${isNotch ? "rounded-t-none border-t-0 shadow-notch" : "mt-1.5 shadow-island"}`}
+          >
+            {isNotch && <NotchCurves />}
+            <div
+              className={`overflow-hidden ${
+                isNotch
+                  ? isSearchExpanded
+                    ? "rounded-b-[36px] rounded-t-none"
+                    : "rounded-b-[20px] rounded-t-none"
+                  : isSearchExpanded
+                  ? "rounded-[36px]"
+                  : "rounded-full"
+              }`}
+            >
+              <SpotifySearchWidget
+                isExpanded={isSearchExpanded}
+                onExpandChange={setIsSearchExpanded}
+                onClose={() => {
+                  setActiveOverlay("none");
+                  setIsSearchExpanded(false);
+                }}
+              />
+            </div>
+          </motion.div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <motion.div
+            ref={containerRef}
+            layout
+            onWheel={handleWheel}
+            onDragEnter={handleDragEnter}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (activeOverlayRef.current === "none") triggerOverlay("drop-file", 5000);
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                if (activeOverlayRef.current === "drop-file") {
+                  setActiveOverlay("none");
+                }
               }
-            }
-          }}
-          onDrop={handleContainerDrop}
-          transition={springTransition}
-          style={{
-            transformOrigin: "top center",
-            backgroundColor: "var(--color-island-bg)",
-            boxShadow: isExpanded
-              ? "0 25px 50px -10px rgba(0, 0, 0, 0.75)"
-              : "0 8px 20px -4px rgba(0, 0, 0, 0.5)",
-            borderTopLeftRadius: isNotch ? 0 : isExpanded ? 36 : 9999,
-            borderTopRightRadius: isNotch ? 0 : isExpanded ? 36 : 9999,
-            borderBottomLeftRadius: isExpanded ? 36 : isNotch ? 20 : 9999,
-            borderBottomRightRadius: isExpanded ? 36 : isNotch ? 20 : 9999,
-          }}
-          className={`relative pointer-events-auto flex flex-col items-center border-0 origin-top ${
-            isExpanded && settings.allow_blur ? "backdrop-blur-2xl" : ""
-          } ${isNotch ? "rounded-t-none border-t-0 shadow-notch" : "mt-1.5 shadow-island"}`}
-        >
-          {isNotch && <NotchCurves />}
+            }}
+            onDrop={handleContainerDrop}
+            transition={springTransition}
+            style={{
+              transformOrigin: "top center",
+              backgroundColor: "var(--card)",
+              boxShadow: isExpanded
+                ? "0 25px 50px -10px rgba(0, 0, 0, 0.75)"
+                : "0 8px 20px -4px rgba(0, 0, 0, 0.5)",
+              borderTopLeftRadius: isNotch ? 0 : isExpanded ? 36 : 9999,
+              borderTopRightRadius: isNotch ? 0 : isExpanded ? 36 : 9999,
+              borderBottomLeftRadius: isExpanded ? 36 : isNotch ? 20 : 9999,
+              borderBottomRightRadius: isExpanded ? 36 : isNotch ? 20 : 9999,
+            }}
+            className={`relative pointer-events-auto flex flex-col items-center border-0 origin-top ${
+              isExpanded && settings.allow_blur ? "backdrop-blur-2xl" : ""
+            } ${isNotch ? "rounded-t-none border-t-0 shadow-notch" : "mt-1.5 shadow-island"}`}
+          >
+            {isNotch && <NotchCurves />}
 
-          <div className={`w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-items-center overflow-hidden ${
-              isNotch ? (isExpanded ? "rounded-b-[36px] rounded-t-none" : "rounded-b-[20px] rounded-t-none") : (isExpanded ? "rounded-[36px]" : "rounded-full")
-          }`}>
-            <AnimatePresence initial={false}>
+            <div className={`w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-items-center overflow-hidden ${
+                isNotch ? (isExpanded ? "rounded-b-[36px] rounded-t-none" : "rounded-b-[20px] rounded-t-none") : (isExpanded ? "rounded-[36px]" : "rounded-full")
+            }`}>
+              <AnimatePresence initial={false}>
 
-              {incomingTransfer ? (
-                <motion.div key="overlay-incoming" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[340px]">
-                  <IncomingTransferOverlay transfer={incomingTransfer} onAccept={() => acceptTransfer(incomingTransfer.sessionId)} onReject={() => rejectTransfer(incomingTransfer.sessionId)} />
-                </motion.div>
-              ) : currentTransfer ? (
-                <motion.div key="overlay-transfer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[360px]">
-                  <TransferProgressOverlay transfer={currentTransfer} onCancel={cancelTransfer} />
-                </motion.div>
-              ) : activeOverlay === "volume" ? (
-                <motion.div key="overlay-volume" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[280px] h-8 flex items-center justify-center">
-                  <VolumeOverlay volume={volumeLevel} isMuted={isMuted} />
-                </motion.div>
-              ) : activeOverlay === "brightness" ? (
-                <motion.div key="overlay-brightness" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  <BrightnessOverlay brightness={brightnessLevel} />
-                </motion.div>
-              ) : activeOverlay === "timer-over" ? (
-                <motion.div key="overlay-timer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  <TimerOverOverlay onDismiss={() => setActiveOverlay("none")} />
-                </motion.div>
-              ) : activeOverlay === "drop-file" ? (
-                <motion.div key="overlay-drop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  <DropFileOverlay externalHoveredZone={hoveredDropZone} onSelectLocalSend={() => { if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current); setActiveOverlay("drop-localsend"); }} onSelectTray={() => { openIsland("tray"); setActiveOverlay("none"); }} />
-                </motion.div>
-              ) : activeOverlay === "drop-localsend" ? (
-                <motion.div key="overlay-drop-ls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  <DropLocalSendOverlay draggedFiles={draggedFiles} draggedFilesRef={draggedFilesRef} hoveredFingerprint={hoveredFingerprint} onClose={() => { if (dragLeaveTimeoutRef.current) clearTimeout(dragLeaveTimeoutRef.current); setActiveOverlay("none"); setDraggedFiles([]); draggedFilesRef.current = []; setHoveredFingerprint(null); }} />
-                </motion.div>
-              ) : activeOverlay === "tray-saving" ? (
-                <motion.div key="overlay-tray-saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  <TraySavingToast />
-                </motion.div>
-              ) : activeOverlay === "tray-confirmed" ? (
-                <motion.div key="overlay-tray-conf" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  <TrayConfirmedToast type={confirmationToast?.type} />
-                </motion.div>
+                {incomingTransfer ? (
+                  <motion.div key="overlay-incoming" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[340px]">
+                    <IncomingTransferOverlay transfer={incomingTransfer} onAccept={() => acceptTransfer(incomingTransfer.sessionId)} onReject={() => rejectTransfer(incomingTransfer.sessionId)} />
+                  </motion.div>
+                ) : currentTransfer ? (
+                  <motion.div key="overlay-transfer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[360px]">
+                    <TransferProgressOverlay transfer={currentTransfer} onCancel={cancelTransfer} />
+                  </motion.div>
+                ) : activeOverlay === "volume" ? (
+                  <motion.div key="overlay-volume" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[280px] h-8 flex items-center justify-center">
+                    <VolumeOverlay volume={volumeLevel} isMuted={isMuted} />
+                  </motion.div>
+                ) : activeOverlay === "brightness" ? (
+                  <motion.div key="overlay-brightness" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                    <BrightnessOverlay brightness={brightnessLevel} />
+                  </motion.div>
+                ) : activeOverlay === "timer-over" ? (
+                  <motion.div key="overlay-timer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                    <TimerOverOverlay onDismiss={() => setActiveOverlay("none")} />
+                  </motion.div>
+                ) : activeOverlay === "drop-file" ? (
+                  <motion.div key="overlay-drop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                    <DropFileOverlay externalHoveredZone={hoveredDropZone} onSelectLocalSend={() => { if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current); setActiveOverlay("drop-localsend"); }} onSelectTray={() => { openIsland("tray"); setActiveOverlay("none"); }} />
+                  </motion.div>
+                ) : activeOverlay === "drop-localsend" ? (
+                  <motion.div key="overlay-drop-ls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                    <DropLocalSendOverlay draggedFiles={draggedFiles} draggedFilesRef={draggedFilesRef} hoveredFingerprint={hoveredFingerprint} onClose={() => { if (dragLeaveTimeoutRef.current) clearTimeout(dragLeaveTimeoutRef.current); setActiveOverlay("none"); setDraggedFiles([]); draggedFilesRef.current = []; setHoveredFingerprint(null); }} />
+                  </motion.div>
+                ) : activeOverlay === "tray-saving" ? (
+                  <motion.div key="overlay-tray-saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                    <TraySavingToast />
+                  </motion.div>
+                ) : activeOverlay === "tray-confirmed" ? (
+                  <motion.div key="overlay-tray-conf" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                    <TrayConfirmedToast type={confirmationToast?.type} />
+                  </motion.div>
 
               ) : !isExpanded ? (
                 <motion.div
@@ -427,10 +572,10 @@ export const DynamicIsland: React.FC = () => {
                       ? "w-[210px] px-3 cursor-pointer"
                       : showIdleClock
                       ? "w-[128px] px-2 cursor-pointer"
-                      : viewMode === "pomodoro" || isPomodoroActive
-                      ? "w-[190px] px-3 cursor-pointer"
-                      : viewMode === "spotify" || media.is_playing
+                      : (!isWheelPreviewing && media.is_playing) || viewMode === "spotify"
                       ? "w-[210px] px-2.5 cursor-pointer"
+                      : (!isWheelPreviewing && isPomodoroActive) || viewMode === "pomodoro"
+                      ? "w-[190px] px-3 cursor-pointer"
                       : viewMode === "tray" || viewMode === "clipboard" || viewMode === "translate"
                       ? "w-[150px] px-3 cursor-pointer"
                       : "w-[128px] px-2 cursor-pointer"
@@ -445,6 +590,7 @@ export const DynamicIsland: React.FC = () => {
                     pomodoroTimeRemaining={pomodoro.timeRemaining}
                     viewMode={viewMode}
                     showIdleClock={showIdleClock}
+                    isWheelPreviewing={isWheelPreviewing}
                   />
                 </motion.div>
 
@@ -485,6 +631,7 @@ export const DynamicIsland: React.FC = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

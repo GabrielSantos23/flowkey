@@ -125,29 +125,29 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -4 }}
       transition={{ type: "spring", stiffness: 450, damping: 30 }}
-      className="flex flex-col gap-2.5 p-3 w-[360px] select-none text-white"
+      className="flex flex-col gap-2.5 p-3 w-[360px] select-none text-foreground"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-xl bg-primary/20 text-primary flex items-center justify-center">
             <Send className="w-3.5 h-3.5" />
           </div>
           <div>
-            <div className="text-xs font-bold text-white flex items-center gap-1.5">
+            <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <span>Send via LocalSend</span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-primary/20 text-primary font-semibold border border-primary/30">
                 AirDrop Mode
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400">Select target device to send</div>
+            <div className="text-[10px] text-muted-foreground">Select target device to send</div>
           </div>
         </div>
 
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowManualConnect((prev) => !prev)}
-            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-400 hover:text-white transition-all active:scale-95"
+            className="p-1.5 rounded-full bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground transition-all active:scale-95"
             title="Connect via IP"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -158,11 +158,11 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
               if (isSearching) stopDiscovery();
               else startDiscovery(8);
             }}
-            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-400 hover:text-white transition-all active:scale-95"
+            className="p-1.5 rounded-full bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground transition-all active:scale-95"
             title="Search Devices"
           >
             {isSearching ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
             ) : (
               <Search className="w-3.5 h-3.5" />
             )}
@@ -170,7 +170,7 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-neutral-400 transition-all active:scale-95"
+            className="p-1.5 rounded-full bg-secondary hover:bg-destructive/20 hover:text-destructive text-muted-foreground transition-all active:scale-95"
             title="Close"
           >
             <X className="w-3.5 h-3.5" />
@@ -186,7 +186,7 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             onSubmit={handleManualConnect}
-            className="overflow-hidden p-2 rounded-xl bg-neutral-900 border border-white/10 flex flex-col gap-1.5 text-xs"
+            className="overflow-hidden p-2 rounded-xl bg-card border border-border flex flex-col gap-1.5 text-xs"
           >
             <div className="flex items-center gap-2">
               <input
@@ -194,18 +194,18 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
                 placeholder="e.g. 192.168.15.50"
                 value={manualIp}
                 onChange={(e) => setManualIp(e.target.value)}
-                className="flex-1 bg-black/60 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500/60 font-mono"
+                className="flex-1 bg-background border border-input rounded-lg px-2.5 py-1 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
                 autoFocus
               />
               <button
                 type="submit"
                 disabled={isConnectingManual || !manualIp.trim()}
-                className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold rounded-lg transition-all active:scale-95"
+                className="px-3 py-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-xs font-bold rounded-lg transition-all active:scale-95"
               >
                 {isConnectingManual ? <Loader2 className="w-3 h-3 animate-spin" /> : "Connect"}
               </button>
             </div>
-            {manualError && <div className="text-[10px] text-red-400">{manualError}</div>}
+            {manualError && <div className="text-[10px] text-destructive">{manualError}</div>}
           </motion.form>
         )}
       </AnimatePresence>
@@ -213,20 +213,20 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
       {/* Device List */}
       <div className="flex flex-col gap-1.5 max-h-[170px] overflow-y-auto custom-scrollbar pr-0.5">
         {devices.length === 0 ? (
-          <div className="py-4 px-3 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center justify-center text-center gap-2">
+          <div className="py-4 px-3 rounded-xl bg-card border border-border flex flex-col items-center justify-center text-center gap-2">
             {isSearching ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-                <span className="text-xs font-semibold text-white">Scanning local devices...</span>
-                <span className="text-[10px] text-neutral-400">Open LocalSend on your phone or PC</span>
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-xs font-semibold text-foreground">Scanning local devices...</span>
+                <span className="text-[10px] text-muted-foreground">Open LocalSend on your phone or PC</span>
               </>
             ) : (
               <>
-                <Radio className="w-5 h-5 text-neutral-500" />
-                <span className="text-xs text-neutral-300 font-semibold">No devices found</span>
+                <Radio className="w-5 h-5 text-muted-foreground" />
+                <span className="text-xs text-foreground font-semibold">No devices found</span>
                 <button
                   onClick={() => startDiscovery(8)}
-                  className="px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all active:scale-95 shadow-sm"
+                  className="px-3 py-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all active:scale-95 shadow-sm"
                 >
                   Scan Network
                 </button>
@@ -296,25 +296,25 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
                 }}
                 className={`flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer ${
                   isHoveredTarget
-                    ? "bg-emerald-500/30 border-emerald-400 text-white scale-[1.02] shadow-lg shadow-emerald-500/20"
-                    : "bg-neutral-900/80 hover:bg-white/10 border-white/5"
+                    ? "bg-primary/30 border-primary text-foreground scale-[1.02] shadow-lg shadow-primary/20"
+                    : "bg-card hover:bg-muted border-border"
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
                   <div
                     className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       isHoveredTarget
-                        ? "bg-emerald-500 text-black shadow-md"
-                        : "bg-black/60 border border-white/10"
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-muted border border-border"
                     }`}
                   >
                     {getDeviceIcon(device.deviceType)}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-white truncate max-w-[150px]">
+                    <div className="text-xs font-semibold text-foreground truncate max-w-[150px]">
                       {device.alias}
                     </div>
-                    <div className="text-[9px] text-neutral-400 font-mono truncate">
+                    <div className="text-[9px] text-muted-foreground font-mono truncate">
                       {isHoveredTarget ? "Drop to send file / text" : device.ip}
                     </div>
                   </div>
@@ -349,8 +349,8 @@ export const DropLocalSendOverlay: React.FC<DropLocalSendOverlayProps> = ({
                   }}
                   className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 ${
                     isHoveredTarget
-                      ? "bg-emerald-400 text-black shadow-md"
-                      : "bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300"
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "bg-primary/20 hover:bg-primary/30 border border-primary/40 text-primary"
                   }`}
                 >
                   <FileUp className="w-3 h-3 pointer-events-none" />

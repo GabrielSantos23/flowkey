@@ -134,12 +134,16 @@ fn add_item_to_history(item: ClipboardItemPayload) -> Vec<ClipboardItemPayload> 
 }
 
 #[tauri::command]
-pub fn load_clipboard_history() -> Vec<ClipboardItemPayload> {
-    let mut lock = CLIPBOARD_HISTORY.lock().unwrap();
-    if lock.is_none() {
-        *lock = Some(load_history_from_disk());
-    }
-    lock.as_ref().unwrap().clone()
+pub async fn load_clipboard_history() -> Vec<ClipboardItemPayload> {
+    tokio::task::spawn_blocking(|| {
+        let mut lock = CLIPBOARD_HISTORY.lock().unwrap();
+        if lock.is_none() {
+            *lock = Some(load_history_from_disk());
+        }
+        lock.as_ref().unwrap().clone()
+    })
+    .await
+    .unwrap_or_default()
 }
 
 #[tauri::command]
@@ -224,6 +228,7 @@ pub async fn fetch_url_preview(url: String) -> Result<UrlPreviewData, String> {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn get_kde_clipboard_text() -> Option<String> {
     for cmd in &["qdbus6", "qdbus"] {
         if let Ok(output) = std::process::Command::new(cmd)
@@ -241,6 +246,12 @@ fn get_kde_clipboard_text() -> Option<String> {
     None
 }
 
+#[cfg(not(target_os = "linux"))]
+fn get_kde_clipboard_text() -> Option<String> {
+    None
+}
+
+#[cfg(target_os = "linux")]
 fn set_kde_clipboard_text(text: &str) -> bool {
     for cmd in &["qdbus6", "qdbus"] {
         if let Ok(status) = std::process::Command::new(cmd)
@@ -255,6 +266,12 @@ fn set_kde_clipboard_text(text: &str) -> bool {
     false
 }
 
+#[cfg(not(target_os = "linux"))]
+fn set_kde_clipboard_text(_text: &str) -> bool {
+    false
+}
+
+#[cfg(target_os = "linux")]
 fn seed_from_kde_history() -> Vec<ClipboardItemPayload> {
     let mut items = Vec::new();
     for cmd in &["qdbus6", "qdbus"] {
@@ -277,6 +294,11 @@ fn seed_from_kde_history() -> Vec<ClipboardItemPayload> {
         }
     }
     items
+}
+
+#[cfg(not(target_os = "linux"))]
+fn seed_from_kde_history() -> Vec<ClipboardItemPayload> {
+    Vec::new()
 }
 
 #[tauri::command]

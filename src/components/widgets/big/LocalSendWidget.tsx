@@ -140,23 +140,23 @@ export const LocalSendWidget: React.FC = () => {
 
   return (
     <SizeTransitionBlur className="w-full">
-      <div className="w-full flex flex-col gap-3 p-3 bg-transparent text-white select-none">
+      <div className="w-full flex flex-col gap-3 p-3 bg-transparent text-foreground select-none">
         {/* Header Bar */}
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+            <div className="w-6 h-6 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
               <Send className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white">LocalSend</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/10 text-white/70 font-mono">
+                <span className="text-xs font-bold text-foreground">LocalSend</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-mono">
                   v2.1
                 </span>
               </div>
               {myDevice && (
-                <div className="text-[10px] text-neutral-400 truncate max-w-[180px]">
-                  {myDevice.alias} <span className="text-neutral-500 font-mono">({myDevice.ip})</span>
+                <div className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+                  {myDevice.alias} <span className="text-muted-foreground/70 font-mono">({myDevice.ip})</span>
                 </div>
               )}
             </div>
@@ -166,7 +166,7 @@ export const LocalSendWidget: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowManualConnect((prev) => !prev)}
-              className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-all active:scale-95"
+              className="p-1 rounded-full bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground transition-all active:scale-95"
               title="Connect via IP"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -182,13 +182,13 @@ export const LocalSendWidget: React.FC = () => {
               }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all active:scale-95 shadow-sm ${
                 isSearching
-                  ? "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50"
-                  : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
+                  ? "bg-primary/30 text-primary border border-primary/50"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
               {isSearching ? (
                 <>
-                  <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
                   <span>Searching...</span>
                 </>
               ) : devices.length > 0 ? (
@@ -214,16 +214,16 @@ export const LocalSendWidget: React.FC = () => {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               onSubmit={handleManualConnect}
-              className="overflow-hidden p-2.5 rounded-xl bg-neutral-900 border border-white/10 flex flex-col gap-2"
+              className="overflow-hidden p-2.5 rounded-xl bg-card border border-border flex flex-col gap-2"
             >
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-neutral-300 flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-emerald-400" /> Connect by IP
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-primary" /> Connect by IP
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowManualConnect(false)}
-                  className="text-neutral-500 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -235,20 +235,20 @@ export const LocalSendWidget: React.FC = () => {
                   placeholder="e.g. 192.168.15.50"
                   value={manualIp}
                   onChange={(e) => setManualIp(e.target.value)}
-                  className="flex-1 bg-black/60 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500/60 font-mono"
+                  className="flex-1 bg-background border border-input rounded-lg px-2.5 py-1 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={isConnectingManual || !manualIp.trim()}
-                  className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold rounded-lg transition-all active:scale-95"
+                  className="px-3 py-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-xs font-bold rounded-lg transition-all active:scale-95"
                 >
                   {isConnectingManual ? <Loader2 className="w-3 h-3 animate-spin" /> : "Connect"}
                 </button>
               </div>
 
               {manualError && (
-                <div className="text-[10px] text-red-400 font-medium">{manualError}</div>
+                <div className="text-[10px] text-destructive font-medium">{manualError}</div>
               )}
             </motion.form>
           )}
@@ -261,40 +261,40 @@ export const LocalSendWidget: React.FC = () => {
               initial={{ opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-neutral-900 border border-emerald-500/30 flex flex-col gap-2 shadow-lg"
+              className="p-3 rounded-2xl bg-card border border-primary/30 flex flex-col gap-2 shadow-lg"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <div className="w-7 h-7 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
                     <Download className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-white">Incoming Transfer</div>
-                    <div className="text-[10px] text-emerald-300">
+                    <div className="text-xs font-bold text-foreground">Incoming Transfer</div>
+                    <div className="text-[10px] text-primary">
                       From: <span className="font-semibold">{incomingTransfer.sender.alias}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-[10px] font-mono text-neutral-400">
+                <div className="text-[10px] font-mono text-muted-foreground">
                   {formatBytes(incomingTransfer.totalSize)}
                 </div>
               </div>
 
-              <div className="text-[11px] text-neutral-300 truncate bg-black/40 px-2 py-1 rounded-lg">
+              <div className="text-[11px] text-foreground truncate bg-muted/40 px-2 py-1 rounded-lg">
                 {incomingTransfer.files.map((f) => f.fileName).join(", ")}
               </div>
 
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={() => acceptTransfer(incomingTransfer.sessionId)}
-                  className="flex-1 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all active:scale-95 shadow-sm"
+                  className="flex-1 py-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all active:scale-95 shadow-sm"
                 >
                   Accept & Save
                 </button>
                 <button
                   onClick={() => rejectTransfer(incomingTransfer.sessionId)}
-                  className="px-3 py-1 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 text-xs font-bold transition-all active:scale-95"
+                  className="px-3 py-1 rounded-xl bg-destructive/20 hover:bg-destructive/30 border border-destructive/40 text-destructive text-xs font-bold transition-all active:scale-95"
                 >
                   Decline
                 </button>
@@ -306,26 +306,26 @@ export const LocalSendWidget: React.FC = () => {
         {/* Active Transfers Progress Section */}
         {activeTransferList.length > 0 && (
           <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
               Active Transfers
             </span>
             {activeTransferList.map((t) => (
               <div
                 key={t.transferId}
-                className="p-2.5 rounded-xl bg-black/50 border border-white/10 flex flex-col gap-1.5"
+                className="p-2.5 rounded-xl bg-card border border-border flex flex-col gap-1.5"
               >
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-white truncate max-w-[200px]">
+                  <span className="font-medium text-foreground truncate max-w-[200px]">
                     {t.fileName}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-neutral-400">
+                    <span className="text-[10px] font-mono text-muted-foreground">
                       {formatBytes(t.speed)}/s
                     </span>
                     {t.status === "sending" || t.status === "receiving" ? (
                       <button
                         onClick={() => cancelTransfer(t.transferId)}
-                        className="p-0.5 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white"
+                        className="p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
                         title="Cancel"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -333,20 +333,20 @@ export const LocalSendWidget: React.FC = () => {
                     ) : t.status === "completed" ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     ) : (
-                      <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                      <AlertCircle className="w-3.5 h-3.5 text-destructive" />
                     )}
                   </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                   <motion.div
                     className={`h-full rounded-full ${
                       t.status === "completed"
-                        ? "bg-emerald-400"
+                        ? "bg-emerald-500"
                         : t.status === "failed"
-                        ? "bg-red-500"
-                        : "bg-gradient-to-r from-emerald-500 to-cyan-400"
+                        ? "bg-destructive"
+                        : "bg-primary"
                     }`}
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.round(t.progress * 100)}%` }}
@@ -354,7 +354,7 @@ export const LocalSendWidget: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
                   <span>
                     {formatBytes(t.transferredBytes)} / {formatBytes(t.totalBytes)}
                   </span>
@@ -368,11 +368,11 @@ export const LocalSendWidget: React.FC = () => {
         {/* Nearby Devices Section */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Nearby Devices ({devices.length})
             </span>
             {isSearching && (
-              <span className="text-[10px] text-emerald-400 animate-pulse">
+              <span className="text-[10px] text-primary animate-pulse">
                 Listening on 224.0.0.167:53317
               </span>
             )}
@@ -380,33 +380,33 @@ export const LocalSendWidget: React.FC = () => {
 
           {devices.length === 0 ? (
             /* Empty State */
-            <div className="py-6 px-4 rounded-2xl bg-neutral-900/60 border border-white/5 flex flex-col items-center justify-center text-center gap-2.5">
+            <div className="py-6 px-4 rounded-2xl bg-card border border-border flex flex-col items-center justify-center text-center gap-2.5">
               {isSearching ? (
                 <>
                   <div className="relative flex items-center justify-center w-10 h-10">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-25"></span>
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-25"></span>
+                    <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
                       <Send className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-xs font-semibold text-foreground">
                     Scanning local network...
                   </div>
-                  <div className="text-[10px] text-neutral-400 max-w-[220px]">
+                  <div className="text-[10px] text-muted-foreground max-w-[220px]">
                     Make sure LocalSend is open on other devices connected to the same Wi-Fi.
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400">
+                  <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground">
                     <Search className="w-4 h-4" />
                   </div>
-                  <div className="text-xs font-semibold text-neutral-300">
+                  <div className="text-xs font-semibold text-foreground">
                     No devices found
                   </div>
                   <button
                     onClick={() => startDiscovery(8)}
-                    className="px-4 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all active:scale-95 shadow-sm"
+                    className="px-4 py-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all active:scale-95 shadow-sm"
                   >
                     Find Devices
                   </button>
@@ -419,17 +419,17 @@ export const LocalSendWidget: React.FC = () => {
               {devices.map((device) => (
                 <div
                   key={device.fingerprint}
-                  className="group flex items-center justify-between p-2 rounded-xl bg-neutral-900/80 hover:bg-white/10 border border-white/5 transition-all"
+                  className="group flex items-center justify-between p-2 rounded-xl bg-card hover:bg-muted border border-border transition-all"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0 shadow-sm">
                       {getDeviceIcon(device.deviceType)}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-white truncate max-w-[150px]">
+                      <div className="text-xs font-semibold text-foreground truncate max-w-[150px]">
                         {device.alias}
                       </div>
-                      <div className="text-[10px] text-neutral-400 font-mono truncate">
+                      <div className="text-[10px] text-muted-foreground font-mono truncate">
                         {device.ip}:{device.port}
                       </div>
                     </div>
@@ -438,7 +438,7 @@ export const LocalSendWidget: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleSendClipboard(device)}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-cyan-500/20 hover:text-cyan-300 text-neutral-400 text-xs transition-all active:scale-95"
+                      className="p-1.5 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs transition-all active:scale-95"
                       title={`Send Clipboard to ${device.alias}`}
                     >
                       <Clipboard className="w-3.5 h-3.5" />
@@ -446,7 +446,7 @@ export const LocalSendWidget: React.FC = () => {
 
                     <button
                       onClick={() => setShowTextModal(device)}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 text-neutral-400 text-xs transition-all active:scale-95"
+                      className="p-1.5 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs transition-all active:scale-95"
                       title={`Send Text to ${device.alias}`}
                     >
                       <Type className="w-3.5 h-3.5" />
@@ -454,7 +454,7 @@ export const LocalSendWidget: React.FC = () => {
 
                     <button
                       onClick={() => handlePickAndSend(device)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all active:scale-95"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/20 hover:bg-primary/30 border border-primary/40 text-primary text-xs font-bold transition-all active:scale-95"
                       title={`Send files to ${device.alias}`}
                     >
                       <FileUp className="w-3 h-3" />
@@ -475,16 +475,16 @@ export const LocalSendWidget: React.FC = () => {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               onSubmit={handleSendTextSubmit}
-              className="overflow-hidden p-2.5 rounded-xl bg-neutral-900 border border-emerald-500/30 flex flex-col gap-2 shadow-lg"
+              className="overflow-hidden p-2.5 rounded-xl bg-card border border-border flex flex-col gap-2 shadow-lg"
             >
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-neutral-200 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> Send Text to {showTextModal.alias}
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-primary" /> Send Text to {showTextModal.alias}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowTextModal(null)}
-                  className="text-neutral-500 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -495,7 +495,7 @@ export const LocalSendWidget: React.FC = () => {
                 placeholder="Type or paste message / text to send..."
                 value={textMessage}
                 onChange={(e) => setTextMessage(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500/60 resize-none font-sans"
+                className="w-full bg-background border border-input rounded-lg p-2 text-xs text-foreground focus:outline-none focus:border-primary resize-none font-sans"
                 autoFocus
               />
 
@@ -508,7 +508,7 @@ export const LocalSendWidget: React.FC = () => {
                       if (clip) setTextMessage(clip);
                     } catch {}
                   }}
-                  className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-white transition-colors"
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Clipboard className="w-3 h-3" />
                   <span>Paste Clipboard</span>
@@ -517,7 +517,7 @@ export const LocalSendWidget: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSendingText || !textMessage.trim()}
-                  className="flex items-center gap-1 px-3 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black text-xs font-bold rounded-lg transition-all active:scale-95"
+                  className="flex items-center gap-1 px-3 py-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-xs font-bold rounded-lg transition-all active:scale-95"
                 >
                   {isSendingText ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -532,14 +532,14 @@ export const LocalSendWidget: React.FC = () => {
         </AnimatePresence>
 
         {/* Quick Open Downloads Folder */}
-        <div className="flex items-center justify-between pt-1 border-t border-white/5 px-1">
+        <div className="flex items-center justify-between pt-1 border-t border-border px-1">
           <button
             onClick={async () => {
               try {
                 await invoke("show_in_folder", { path: "" });
               } catch {}
             }}
-            className="flex items-center gap-1.5 text-[10px] text-neutral-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
           >
             <FolderOpen className="w-3 h-3" />
             <span>Open Received Files (Downloads)</span>

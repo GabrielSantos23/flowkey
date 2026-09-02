@@ -126,10 +126,10 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
         }}
         className={`relative flex flex-col items-center justify-center gap-1.5 w-24 h-16 rounded-2xl cursor-pointer transition-all border overflow-hidden ${
           selectedCard === "tray"
-            ? "bg-purple-600/40 border-purple-400 text-white shadow-xl shadow-purple-500/30 backdrop-blur-md"
+            ? "bg-primary/40 border-primary text-primary-foreground shadow-xl shadow-primary/30 backdrop-blur-md"
             : hoveredCard === "tray"
-            ? "bg-white/20 border-white/40 text-white shadow-lg backdrop-blur-sm"
-            : "bg-white/10 border-white/10 text-neutral-300 hover:text-white"
+            ? "bg-card border-border text-foreground shadow-lg backdrop-blur-sm"
+            : "bg-card/60 border-border text-muted-foreground hover:text-foreground"
         }`}
       >
         {/* Checkmark overlay when selected via 1-2s hover */}
@@ -138,23 +138,23 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="absolute inset-0 bg-purple-600/60 backdrop-blur-md flex flex-col items-center justify-center z-20 pointer-events-none"
+              className="absolute inset-0 bg-primary/80 backdrop-blur-md flex flex-col items-center justify-center z-20 pointer-events-none"
             >
-              <div className="w-6 h-6 rounded-full bg-white text-purple-600 flex items-center justify-center shadow-lg">
+              <div className="w-6 h-6 rounded-full bg-primary-foreground text-primary flex items-center justify-center shadow-lg">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span className="text-[10px] font-bold text-white mt-1">Selected</span>
+              <span className="text-[10px] font-bold text-primary-foreground mt-1">Selected</span>
             </motion.div>
           ) : (
             <>
               {/* Hover Progress Fill */}
               {hoveredCard === "tray" && (
                 <div
-                  className="absolute bottom-0 left-0 h-1 bg-purple-400 transition-all duration-75 z-10 pointer-events-none"
+                  className="absolute bottom-0 left-0 h-1 bg-primary transition-all duration-75 z-10 pointer-events-none"
                   style={{ width: `${hoverProgress}%` }}
                 />
               )}
-              <div className="w-6 h-6 rounded-xl bg-white/10 flex items-center justify-center pointer-events-none">
+              <div className="w-6 h-6 rounded-xl bg-muted flex items-center justify-center pointer-events-none">
                 <Inbox className="w-3.5 h-3.5 stroke-[2.5]" />
               </div>
               <span className="text-[11px] font-semibold tracking-wide pointer-events-none">Tray</span>
@@ -186,10 +186,10 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
         }}
         className={`relative flex flex-col items-center justify-center gap-1.5 w-24 h-16 rounded-2xl cursor-pointer transition-all border overflow-hidden ${
           selectedCard === "localsend"
-            ? "bg-emerald-500/40 border-emerald-400 text-white shadow-xl shadow-emerald-500/30 backdrop-blur-md"
+            ? "bg-accent/40 border-accent text-accent-foreground shadow-xl backdrop-blur-md"
             : hoveredCard === "localsend"
-            ? "bg-emerald-500/30 border-emerald-400/60 text-emerald-300 shadow-lg shadow-emerald-500/20 backdrop-blur-sm"
-            : "bg-white/10 border-white/10 text-neutral-300 hover:text-white"
+            ? "bg-accent/20 border-accent/40 text-accent-foreground shadow-lg backdrop-blur-sm"
+            : "bg-card/60 border-border text-muted-foreground hover:text-foreground"
         }`}
       >
         {/* Checkmark overlay when selected via 1-2s hover */}
@@ -198,23 +198,23 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="absolute inset-0 bg-emerald-600/60 backdrop-blur-md flex flex-col items-center justify-center z-20 pointer-events-none"
+              className="absolute inset-0 bg-accent/80 backdrop-blur-md flex flex-col items-center justify-center z-20 pointer-events-none"
             >
-              <div className="w-6 h-6 rounded-full bg-white text-emerald-600 flex items-center justify-center shadow-lg">
+              <div className="w-6 h-6 rounded-full bg-accent-foreground text-accent flex items-center justify-center shadow-lg">
                 <Check className="w-4 h-4 stroke-[3]" />
               </div>
-              <span className="text-[10px] font-bold text-white mt-1">Selected</span>
+              <span className="text-[10px] font-bold text-accent-foreground mt-1">Selected</span>
             </motion.div>
           ) : (
             <>
               {/* Hover Progress Fill */}
               {hoveredCard === "localsend" && (
                 <div
-                  className="absolute bottom-0 left-0 h-1 bg-emerald-400 transition-all duration-75 z-10 pointer-events-none"
+                  className="absolute bottom-0 left-0 h-1 bg-accent transition-all duration-75 z-10 pointer-events-none"
                   style={{ width: `${hoverProgress}%` }}
                 />
               )}
-              <div className="w-6 h-6 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center pointer-events-none">
+              <div className="w-6 h-6 rounded-xl bg-accent/20 text-accent-foreground flex items-center justify-center pointer-events-none">
                 <Send className="w-3.5 h-3.5 stroke-[2.5]" />
               </div>
               <span className="text-[11px] font-semibold tracking-wide pointer-events-none">LocalSend</span>

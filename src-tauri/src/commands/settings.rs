@@ -37,6 +37,8 @@ pub struct AppSettings {
     pub brightness_popup: bool,
     #[serde(default = "default_false")]
     pub is_hidden: bool,
+    #[serde(default = "default_spotify_search_hotkey")]
+    pub spotify_search_hotkey: String,
 }
 
 fn default_island_mode() -> String {
@@ -47,6 +49,9 @@ fn default_true() -> bool {
 }
 fn default_false() -> bool {
     false
+}
+fn default_spotify_search_hotkey() -> String {
+    "Alt+F".to_string()
 }
 fn default_small_left() -> Vec<String> {
     vec!["time".to_string()]
@@ -85,6 +90,7 @@ impl Default for AppSettings {
             volume_popup: true,
             brightness_popup: true,
             is_hidden: false,
+            spotify_search_hotkey: default_spotify_search_hotkey(),
         }
     }
 }
@@ -153,12 +159,81 @@ pub fn load_settings() -> AppSettings {
     AppSettings::default()
 }
 
+pub fn bind_spotify_hotkey(app: &AppHandle, hotkey: &str) -> Result<(), String> {
+    use tauri::Manager;
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+    let clean = hotkey.replace(" ", "");
+    let _ = app.global_shortcut().unregister_all();
+    if clean.is_empty() {
+        return Ok(());
+    }
+
+    app.global_shortcut()
+        .on_shortcut(clean.as_str(), move |app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    #[cfg(target_os = "windows")]
+                    {
+                        if let Ok(hwnd) = window.hwnd() {
+                            unsafe {
+                                use windows_sys::Win32::System::Threading::AttachThreadInput;
+                                use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+                                    keybd_event, KEYEVENTF_KEYUP, VK_CONTROL, VK_MENU,
+                                };
+                                use windows_sys::Win32::UI::WindowsAndMessaging::{
+                                    BringWindowToTop, GetForegroundWindow,
+                                    GetWindowThreadProcessId, SetForegroundWindow,
+                                };
+
+                                // 1. Release Alt virtual state and tap Ctrl to break out of Windows system menu loop
+                                keybd_event(VK_MENU as u8, 0, KEYEVENTF_KEYUP, 0);
+                                keybd_event(VK_CONTROL as u8, 0, 0, 0);
+                                keybd_event(VK_CONTROL as u8, 0, KEYEVENTF_KEYUP, 0);
+
+                                // 2. Attach thread input to bypass Windows focus stealing protection
+                                let my_thread = GetWindowThreadProcessId(hwnd.0 as _, std::ptr::null_mut());
+                                let fg_hwnd = GetForegroundWindow();
+                                let fg_thread = GetWindowThreadProcessId(fg_hwnd, std::ptr::null_mut());
+
+                                if fg_thread != 0 && fg_thread != my_thread {
+                                    AttachThreadInput(fg_thread, my_thread, 1);
+                                    SetForegroundWindow(hwnd.0 as _);
+                                    BringWindowToTop(hwnd.0 as _);
+                                    AttachThreadInput(fg_thread, my_thread, 0);
+                                } else {
+                                    SetForegroundWindow(hwnd.0 as _);
+                                    BringWindowToTop(hwnd.0 as _);
+                                }
+                            }
+                        }
+                    }
+                    let _ = window.set_focus();
+                    let _ = app.emit("toggle-spotify-search", ());
+                }
+            }
+        })
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<bool, String> {
     let file = get_config_dir().join("Settings.json");
     let content = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(file, content).map_err(|e| e.to_string())?;
     let _ = app.emit("settings-updated", &settings);
+
+    // Update global shortcut if changed
+    let _ = bind_spotify_hotkey(&app, &settings.spotify_search_hotkey);
+
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn register_spotify_search_hotkey(app: AppHandle, hotkey: String) -> Result<bool, String> {
+    bind_spotify_hotkey(&app, &hotkey)?;
     Ok(true)
 }
 

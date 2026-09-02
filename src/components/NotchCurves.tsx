@@ -4,7 +4,7 @@ interface NotchCurvesProps {
   fillColor?: string;
 }
 
-export const NotchCurves: React.FC<NotchCurvesProps> = ({ fillColor = "var(--color-island-bg)" }) => {
+export const NotchCurves: React.FC<NotchCurvesProps> = ({ fillColor = "var(--background)" }) => {
   return (
     <>
       <svg

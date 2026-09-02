@@ -18,7 +18,7 @@ export const ActiveTimerWidget: React.FC<ActiveTimerWidgetProps> = ({ remainingS
       : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs text-amber-400 font-mono font-semibold bg-amber-500/10 rounded-full border border-amber-500/20 animate-pulse">
+    <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs text-primary font-mono font-semibold bg-primary/10 rounded-full border border-primary/20 animate-pulse">
       <Timer className="w-3.5 h-3.5" />
       <span>{formatted}</span>
     </div>

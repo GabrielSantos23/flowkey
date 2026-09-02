@@ -58,16 +58,16 @@ export const MediaWidget: React.FC = () => {
   const isSpotify = media.app_name.toLowerCase().includes("spotify");
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-island-widget backdrop-blur-md p-4 flex flex-col justify-between border border-white/5 shadow-inner transition-all hover:border-white/10 group min-w-[240px] flex-1">
-      {/* Background glowing Spotify/Media accent */}
+    <div className="relative overflow-hidden rounded-2xl bg-card backdrop-blur-md p-4 flex flex-col justify-between border border-border shadow-inner transition-all hover:border-border group min-w-[240px] flex-1">
+      {/* Background glowing accent */}
       {isSpotify && (
-        <div className="absolute -right-8 -top-8 w-28 h-28 bg-[#1DB954]/15 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -right-8 -top-8 w-28 h-28 bg-primary/15 rounded-full blur-2xl pointer-events-none" />
       )}
 
       {/* Top Header */}
       <div className="flex items-center justify-between gap-3 z-10">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="relative w-11 h-11 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-md">
+          <div className="relative w-11 h-11 rounded-xl bg-muted border border-border flex items-center justify-center overflow-hidden flex-shrink-0 shadow-md">
             {media.art_url ? (
               <img
                 src={media.art_url}
@@ -80,18 +80,18 @@ export const MediaWidget: React.FC = () => {
             ) : isSpotify ? (
               <img src="/icons/home/Spotify.png" alt="Spotify" className="w-6 h-6 object-contain" />
             ) : (
-              <Music className="w-5 h-5 text-island-primary" />
+              <Music className="w-5 h-5 text-primary" />
             )}
             {media.is_playing && (
-              <span className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-[#1DB954] ring-2 ring-black" />
+              <span className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-primary ring-2 ring-background" />
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <h4 className="text-sm font-semibold text-island-textMain truncate leading-tight">
+            <h4 className="text-sm font-semibold text-foreground truncate leading-tight">
               {media.title || "No Media"}
             </h4>
-            <p className="text-xs text-island-textSecond truncate mt-0.5">
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
               {media.artist || "DynamicWin"}
             </p>
           </div>
@@ -102,7 +102,7 @@ export const MediaWidget: React.FC = () => {
           {[0.3, 0.8, 0.5, 0.9, 0.6, 0.4].map((h, i) => (
             <motion.div
               key={i}
-              className="w-1 rounded-full bg-island-primary"
+              className="w-1 rounded-full bg-primary"
               animate={
                 media.is_playing
                   ? {
@@ -129,7 +129,7 @@ export const MediaWidget: React.FC = () => {
       <div className="flex items-center justify-center gap-4 mt-3 z-10">
         <button
           onClick={handlePrev}
-          className="p-2 rounded-full text-island-textSecond hover:text-island-textMain hover:bg-white/10 active:scale-95 transition-all"
+          className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent active:scale-95 transition-all"
           title="Previous Track"
         >
           <SkipBack className="w-4 h-4" />
@@ -137,7 +137,7 @@ export const MediaWidget: React.FC = () => {
 
         <button
           onClick={handlePlayPause}
-          className="p-2.5 rounded-full bg-island-primary text-island-secondary hover:brightness-110 active:scale-90 transition-all shadow-md"
+          className="p-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:scale-90 transition-all shadow-md"
           title={media.is_playing ? "Pause" : "Play"}
         >
           {media.is_playing ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
@@ -145,7 +145,7 @@ export const MediaWidget: React.FC = () => {
 
         <button
           onClick={handleNext}
-          className="p-2 rounded-full text-island-textSecond hover:text-island-textMain hover:bg-white/10 active:scale-95 transition-all"
+          className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent active:scale-95 transition-all"
           title="Next Track"
         >
           <SkipForward className="w-4 h-4" />

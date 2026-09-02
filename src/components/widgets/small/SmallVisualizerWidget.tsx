@@ -13,7 +13,7 @@ export const SmallVisualizerWidget: React.FC<SmallVisualizerWidgetProps> = ({ is
       {bars.map((heightMultiplier, i) => (
         <motion.div
           key={i}
-          className="w-0.5 rounded-full bg-island-primary"
+          className="w-0.5 rounded-full bg-primary"
           animate={
             isPlaying
               ? {

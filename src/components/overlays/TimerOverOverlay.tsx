@@ -15,21 +15,21 @@ export const TimerOverOverlay: React.FC<TimerOverOverlayProps> = ({ onDismiss })
       className="relative flex items-center justify-between gap-4 px-6 py-3 w-full select-none"
     >
       {/* Pulsing Alert Waves */}
-      <div className="absolute inset-0 rounded-full border-2 border-island-primary/40 animate-ping pointer-events-none" />
+      <div className="absolute inset-0 rounded-full border-2 border-destructive/40 animate-ping pointer-events-none" />
 
       <div className="flex items-center gap-3 z-10">
-        <div className="p-2 rounded-full bg-rose-500/20 text-rose-400">
+        <div className="p-2 rounded-full bg-destructive/20 text-destructive">
           <BellRing className="w-5 h-5 animate-bounce" />
         </div>
         <div>
-          <h4 className="text-sm font-bold text-island-textMain tracking-tight">Timer Completed!</h4>
-          <p className="text-[11px] text-island-textSecond">Your countdown has elapsed</p>
+          <h4 className="text-sm font-bold text-foreground tracking-tight">Timer Completed!</h4>
+          <p className="text-[11px] text-muted-foreground">Your countdown has elapsed</p>
         </div>
       </div>
 
       <button
         onClick={onDismiss}
-        className="p-1.5 rounded-full text-island-textSecond hover:text-island-textMain hover:bg-white/10 active:scale-90 transition-all z-10"
+        className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent active:scale-90 transition-all z-10"
         title="Dismiss Alert"
       >
         <X className="w-4 h-4" />

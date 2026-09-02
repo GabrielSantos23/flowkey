@@ -12,6 +12,7 @@ interface CollapsedContentProps {
   pomodoroTimeRemaining: number;
   viewMode?: ViewMode;
   showIdleClock?: boolean;
+  isWheelPreviewing?: boolean;
 }
 
 const formatTime = (secs: number) => {
@@ -28,32 +29,73 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
   pomodoroTimeRemaining,
   viewMode = "spotify",
   showIdleClock = false,
+  isWheelPreviewing = false,
 }) => {
+  const renderSpotifyCapsule = () => (
+    <div className="flex items-center justify-between w-full">
+      <div className="w-5 h-5 rounded-md bg-card border border-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+        {media.art_url ? (
+          <img src={media.art_url} alt={media.title} className="w-full h-full object-cover" onError={(e) => ((e.target as HTMLElement).style.display = "none")} />
+        ) : (
+          <Music className="w-3 h-3 text-muted-foreground" />
+        )}
+      </div>
+      <div className="flex-1" />
+      <div className="flex items-center gap-[2.5px] h-3.5 px-0.5">
+        <span
+          className={`w-[2.5px] bg-primary rounded-full transition-all ${
+            media.is_playing ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5" : "h-1 opacity-40"
+          }`}
+        />
+        <span
+          className={`w-[2.5px] bg-primary rounded-full transition-all ${
+            media.is_playing ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5" : "h-1.5 opacity-40"
+          }`}
+        />
+        <span
+          className={`w-[2.5px] bg-primary rounded-full transition-all ${
+            media.is_playing ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2" : "h-1 opacity-40"
+          }`}
+        />
+      </div>
+    </div>
+  );
+
+  const renderPomodoroCapsule = () => (
+    <div className="flex items-center justify-between w-full gap-2">
+      <div className="w-5 h-5 rounded-full bg-accent/20 border border-accent/40 flex items-center justify-center flex-shrink-0">
+        <PomodoroIcon className="w-3 h-3 text-accent-foreground" />
+      </div>
+      <span className="text-[11px] font-semibold text-foreground capitalize truncate">{pomodoroMode}</span>
+      <span className="text-xs font-mono font-bold text-accent-foreground flex-shrink-0">{formatTime(pomodoroTimeRemaining)}</span>
+    </div>
+  );
+
   const renderInner = () => {
     if (isDualActive) {
       return (
         <div className="flex items-center justify-between w-full">
-          <div className="w-5 h-5 rounded-md bg-neutral-900 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+          <div className="w-5 h-5 rounded-md bg-card border border-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
             {media.art_url ? (
               <img src={media.art_url} alt={media.title} className="w-full h-full object-cover" onError={(e) => ((e.target as HTMLElement).style.display = "none")} />
             ) : (
-              <Music className="w-3 h-3 text-white/50" />
+              <Music className="w-3 h-3 text-muted-foreground" />
             )}
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-[2.5px] h-3.5 px-0.5">
             <span
-              className={`w-[2.5px] bg-gradient-to-t from-purple-500 to-orange-400 rounded-full transition-all ${
+              className={`w-[2.5px] bg-primary rounded-full transition-all ${
                 media.is_playing ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5" : "h-1 opacity-40"
               }`}
             />
             <span
-              className={`w-[2.5px] bg-gradient-to-t from-purple-500 to-orange-400 rounded-full transition-all ${
+              className={`w-[2.5px] bg-primary rounded-full transition-all ${
                 media.is_playing ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5" : "h-1.5 opacity-40"
               }`}
             />
             <span
-              className={`w-[2.5px] bg-gradient-to-t from-purple-500 to-orange-400 rounded-full transition-all ${
+              className={`w-[2.5px] bg-primary rounded-full transition-all ${
                 media.is_playing ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2" : "h-1 opacity-40"
               }`}
             />
@@ -62,14 +104,22 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
       );
     }
 
-    if (showIdleClock && !media.is_playing && !isPomodoroActive) {
+    // When NOT previewing via wheel/drag, always display the active task (Spotify or Pomodoro), or fallback to clock
+    if (!isWheelPreviewing) {
+      if (media.is_playing) {
+        return renderSpotifyCapsule();
+      }
+      if (isPomodoroActive) {
+        return renderPomodoroCapsule();
+      }
       return <MinimalClockCapsule />;
     }
 
+    // When previewing via wheel/drag, show the previewed widget:
     if (viewMode === "tray") {
       return (
-        <div className="flex items-center justify-center gap-1.5 w-full text-neutral-300 px-1">
-          <Inbox className="w-3.5 h-3.5 text-cyan-400" />
+        <div className="flex items-center justify-center gap-1.5 w-full text-foreground px-1">
+          <Inbox className="w-3.5 h-3.5 text-primary" />
           <span className="text-[11px] font-semibold tracking-tight">File Tray</span>
         </div>
       );
@@ -77,8 +127,8 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
 
     if (viewMode === "clipboard") {
       return (
-        <div className="flex items-center justify-center gap-1.5 w-full text-neutral-300 px-1">
-          <ClipboardList className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="flex items-center justify-center gap-1.5 w-full text-foreground px-1">
+          <ClipboardList className="w-3.5 h-3.5 text-primary" />
           <span className="text-[11px] font-semibold tracking-tight">Clipboard</span>
         </div>
       );
@@ -86,55 +136,19 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
 
     if (viewMode === "translate") {
       return (
-        <div className="flex items-center justify-center gap-1.5 w-full text-neutral-300 px-1">
-          <Languages className="w-3.5 h-3.5 text-blue-400" />
+        <div className="flex items-center justify-center gap-1.5 w-full text-foreground px-1">
+          <Languages className="w-3.5 h-3.5 text-primary" />
           <span className="text-[11px] font-semibold tracking-tight">Translate</span>
         </div>
       );
     }
 
     if (viewMode === "pomodoro" || isPomodoroActive) {
-      return (
-        <div className="flex items-center justify-between w-full gap-2">
-          <div className="w-5 h-5 rounded-full bg-[#ff9f0a]/20 border border-[#ff9f0a]/40 flex items-center justify-center flex-shrink-0">
-            <PomodoroIcon className="w-3 h-3 text-[#ff9f0a]" />
-          </div>
-          <span className="text-[11px] font-semibold text-neutral-300 capitalize truncate">{pomodoroMode}</span>
-          <span className="text-xs font-mono font-bold text-[#ff9f0a] flex-shrink-0">{formatTime(pomodoroTimeRemaining)}</span>
-        </div>
-      );
+      return renderPomodoroCapsule();
     }
 
-    if (media.is_playing || viewMode === "spotify") {
-      return (
-        <div className="flex items-center justify-between w-full">
-          <div className="w-5 h-5 rounded-md bg-neutral-900 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
-            {media.art_url ? (
-              <img src={media.art_url} alt={media.title} className="w-full h-full object-cover" onError={(e) => ((e.target as HTMLElement).style.display = "none")} />
-            ) : (
-              <Music className="w-3 h-3 text-white/50" />
-            )}
-          </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-[2.5px] h-3.5 px-0.5">
-            <span
-              className={`w-[2.5px] bg-[#d8c3a5] rounded-full transition-all ${
-                media.is_playing ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5" : "h-1 opacity-40"
-              }`}
-            />
-            <span
-              className={`w-[2.5px] bg-[#d8c3a5] rounded-full transition-all ${
-                media.is_playing ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5" : "h-1.5 opacity-40"
-              }`}
-            />
-            <span
-              className={`w-[2.5px] bg-[#d8c3a5] rounded-full transition-all ${
-                media.is_playing ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2" : "h-1 opacity-40"
-              }`}
-            />
-          </div>
-        </div>
-      );
+    if (viewMode === "spotify" || media.is_playing) {
+      return renderSpotifyCapsule();
     }
 
     return <MinimalClockCapsule />;
@@ -142,7 +156,7 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
 
   return (
     <SizeTransitionBlur
-      triggerKey={`${viewMode}-${showIdleClock}-${isDualActive}-${media.is_playing}-${isPomodoroActive}`}
+      triggerKey={`${viewMode}-${showIdleClock}-${isDualActive}-${media.is_playing}-${isPomodoroActive}-${isWheelPreviewing}`}
       maxBlur={7}
       duration={0.2}
       className="w-full h-full flex items-center justify-center"

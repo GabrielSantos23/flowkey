@@ -158,6 +158,11 @@ pub async fn check_spotify_auth(state: tauri::State<'_, SpotifyState>) -> Result
 }
 
 #[tauri::command]
+pub async fn get_spotify_access_token(state: tauri::State<'_, SpotifyState>) -> Result<Option<String>, String> {
+    Ok(get_valid_token(&state).await)
+}
+
+#[tauri::command]
 pub fn spotify_logout(state: tauri::State<'_, SpotifyState>) -> bool {
     let path = get_config_path();
     let _ = fs::remove_file(path);
@@ -174,7 +179,7 @@ pub async fn spotify_login(state: tauri::State<'_, SpotifyState>) -> Result<bool
         return Err("Please configure SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env file".to_string());
     }
 
-    let scopes = "user-read-playback-state user-modify-playback-state user-read-currently-playing";
+    let scopes = "user-read-playback-state user-modify-playback-state user-read-currently-playing user-read-recently-played playlist-read-private playlist-read-collaborative user-library-read";
     let auth_url = format!(
         "https://accounts.spotify.com/authorize?response_type=code&client_id={}&scope={}&redirect_uri={}",
         urlencoding::encode(&client_id),
@@ -378,4 +383,70 @@ pub async fn set_spotify_shuffle(
     }
 
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn spotify_play(
+    state: tauri::State<'_, SpotifyState>,
+    uris: Option<Vec<String>>,
+    context_uri: Option<String>,
+    offset_position: Option<usize>,
+) -> Result<bool, String> {
+    if let Some(token) = get_valid_token(&state).await {
+        let client = reqwest::Client::new();
+        let mut body = serde_json::Map::new();
+
+        if let Some(uris_list) = uris {
+            body.insert("uris".to_string(), serde_json::Value::from(uris_list));
+        }
+        if let Some(ctx) = context_uri {
+            body.insert("context_uri".to_string(), serde_json::Value::String(ctx));
+            if let Some(pos) = offset_position {
+                let mut offset_map = serde_json::Map::new();
+                offset_map.insert("position".to_string(), serde_json::Value::Number(pos.into()));
+                body.insert("offset".to_string(), serde_json::Value::Object(offset_map));
+            }
+        }
+
+        let res = client
+            .put("https://api.spotify.com/v1/me/player/play")
+            .bearer_auth(&token)
+            .json(&body)
+            .send()
+            .await;
+
+        if let Ok(resp) = res {
+            if resp.status().is_success() {
+                return Ok(true);
+            }
+            if resp.status().as_u16() == 404 {
+                if let Ok(dev_resp) = client
+                    .get("https://api.spotify.com/v1/me/player/devices")
+                    .bearer_auth(&token)
+                    .send()
+                    .await
+                {
+                    if let Ok(dev_json) = dev_resp.json::<serde_json::Value>().await {
+                        if let Some(devices) = dev_json.get("devices").and_then(|d| d.as_array()) {
+                            if let Some(first_dev) = devices.first() {
+                                if let Some(dev_id) = first_dev.get("id").and_then(|id| id.as_str()) {
+                                    let play_url = format!("https://api.spotify.com/v1/me/player/play?device_id={}", dev_id);
+                                    let retry_res = client
+                                        .put(&play_url)
+                                        .bearer_auth(&token)
+                                        .json(&body)
+                                        .send()
+                                        .await;
+                                    if let Ok(r) = retry_res {
+                                        return Ok(r.status().is_success());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(false)
 }

@@ -19,9 +19,11 @@ import {
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { ClipboardItem } from "../../../types/clipboard";
+import { ClipboardSkeleton } from "@/components/skeletons";
 
 export const ClipboardHistory: React.FC = () => {
   const [items, setItems] = useState<ClipboardItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export const ClipboardHistory: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Real-time clipboard capture listener and auto-refresh
+  // Real-time clipboard capture listener
   useEffect(() => {
     let unlistenHistory: UnlistenFn | undefined;
     let unlistenItem: UnlistenFn | undefined;
@@ -38,12 +40,17 @@ export const ClipboardHistory: React.FC = () => {
     // 1. Initial history fetch from backend
     invoke<ClipboardItem[]>("load_clipboard_history")
       .then((history) => {
-        if (isMounted && history && history.length > 0) {
-          setItems(history);
-          setSelectedId((current) => current || history[0].id);
+        if (isMounted) {
+          if (history && history.length > 0) {
+            setItems(history);
+            setSelectedId((current) => current || history[0].id);
+          }
+          setIsLoading(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
     // 2. Listen for live full history updates emitted from Rust backend
     listen<ClipboardItem[]>("clipboard-history-updated", (event) => {
@@ -75,19 +82,7 @@ export const ClipboardHistory: React.FC = () => {
       else u();
     });
 
-    // 4. Background refresh every 300ms to guarantee real-time UI synchronization
-    const interval = setInterval(() => {
-      if (!isMounted) return;
-      invoke<ClipboardItem[]>("load_clipboard_history")
-        .then((history) => {
-          if (isMounted && history && history.length > 0) {
-            setItems(history);
-          }
-        })
-        .catch(() => {});
-    }, 300);
-
-    // 5. Also refresh immediately on window focus
+    // 4. Refresh on window focus
     const handleFocus = () => {
       invoke<ClipboardItem[]>("load_clipboard_history")
         .then((history) => {
@@ -101,7 +96,6 @@ export const ClipboardHistory: React.FC = () => {
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
       if (unlistenHistory) unlistenHistory();
       if (unlistenItem) unlistenItem();
@@ -311,33 +305,37 @@ export const ClipboardHistory: React.FC = () => {
     return <Layers className="w-3 h-3 text-neutral-400" />;
   };
 
+  if (isLoading) {
+    return <ClipboardSkeleton />;
+  }
+
   return (
-    <div className="w-[580px] h-[370px] flex flex-col bg-[#141416]/95 backdrop-blur-3xl text-neutral-200 select-none overflow-hidden rounded-[26px] shadow-2xl">
+    <div className="w-[580px] h-[370px] flex flex-col bg-card/95 backdrop-blur-3xl text-card-foreground select-none overflow-hidden rounded-[26px] shadow-2xl border border-border">
       {/* 2-COLUMN MAIN BODY */}
       <div className="flex-1 flex min-h-0">
         {/* LEFT COLUMN: Search & Item List */}
-        <div className="w-[260px] flex flex-col border-r border-white/5 bg-black/20">
+        <div className="w-[260px] flex flex-col border-r border-border bg-muted/20">
           {/* Search Header */}
-          <div className="p-2 border-b border-white/5">
+          <div className="p-2 border-b border-border">
             <div className="relative flex items-center">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 text-neutral-400 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Type to search..."
-                className="w-full bg-white/5 hover:bg-white/10 focus:bg-neutral-900 border border-white/5 focus:border-white/15 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none transition-all"
+                className="w-full bg-background hover:bg-muted focus:bg-background border border-input focus:border-primary rounded-xl pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
               />
               {searchQuery ? (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 text-neutral-400 hover:text-white text-xs"
+                  className="absolute right-2 text-muted-foreground hover:text-foreground text-xs"
                 >
                   ✕
                 </button>
               ) : (
-                <div className="absolute right-2 pointer-events-none flex items-center gap-0.5 text-[10px] text-neutral-500 font-mono">
+                <div className="absolute right-2 pointer-events-none flex items-center gap-0.5 text-[10px] text-muted-foreground font-mono">
                   <Command className="w-2.5 h-2.5" />
                 </div>
               )}
@@ -350,7 +348,7 @@ export const ClipboardHistory: React.FC = () => {
             className="flex-1 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar"
           >
             {filteredItems.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center p-4 text-center text-neutral-500">
+              <div className="h-full flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
                 <Search className="w-6 h-6 mb-1 opacity-40" />
                 <span className="text-xs">
                   {searchQuery
@@ -371,8 +369,8 @@ export const ClipboardHistory: React.FC = () => {
                     onClick={() => setSelectedId(item.id)}
                     className={`group relative flex items-center justify-between px-2 py-1.5 rounded-xl cursor-pointer transition-all ${
                       isSelected
-                        ? "bg-white/15 text-white shadow-sm border border-white/5 font-medium"
-                        : "hover:bg-white/5 text-neutral-300 border border-transparent"
+                        ? "bg-primary/20 text-foreground shadow-sm border border-primary/30 font-medium"
+                        : "hover:bg-muted text-muted-foreground border border-transparent"
                     }`}
                   >
                     {/* Leading Icon & Snippet */}
@@ -387,14 +385,14 @@ export const ClipboardHistory: React.FC = () => {
                       onClick={(e) => handleTogglePin(item.id, e)}
                       className={`p-1 rounded-md transition-all ${
                         item.isPinned
-                          ? "text-amber-400 opacity-100"
-                          : "text-neutral-500 hover:text-white opacity-0 group-hover:opacity-100"
+                          ? "text-primary opacity-100"
+                          : "text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
                       }`}
                       title={item.isPinned ? "Unpin item" : "Pin item"}
                     >
                       <Star
                         className={`w-3.5 h-3.5 ${
-                          item.isPinned ? "fill-amber-400" : ""
+                          item.isPinned ? "fill-primary" : ""
                         }`}
                       />
                     </button>
@@ -405,15 +403,15 @@ export const ClipboardHistory: React.FC = () => {
           </div>
 
           {/* Left Footer Shortcuts */}
-          <div className="px-2.5 py-1.5 border-t border-white/5 flex items-center justify-between text-[10px] text-neutral-400 bg-black/40">
+          <div className="px-2.5 py-1.5 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground bg-muted/30">
             <div className="flex items-center gap-1">
-              <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-white/5 border border-white/5 font-mono text-[9px]">
+              <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted border border-border font-mono text-[9px]">
                 ↓↑
               </span>
               <span>Navigate</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-white/5 border border-white/5 font-mono text-[9px]">
+              <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted border border-border font-mono text-[9px]">
                 ↵
               </span>
               <span>Copy</span>
@@ -422,18 +420,18 @@ export const ClipboardHistory: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: Rich Contextual Inspector & Preview */}
-        <div className="flex-1 flex flex-col min-w-0 bg-neutral-900/40">
+        <div className="flex-1 flex flex-col min-w-0 bg-card/40">
           {selectedItem ? (
             <>
               {/* Header Action Bar */}
-              <div className="px-3 py-2 border-b border-white/5 flex items-center justify-between">
+              <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleCopyContent(selectedItem)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-sm transition-all active:scale-95 ${
                       copiedId === selectedItem.id
-                        ? "bg-emerald-500 text-black shadow-md"
-                        : "bg-white text-black hover:bg-neutral-200 shadow-sm"
+                        ? "bg-emerald-500 text-white"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
                     }`}
                   >
                     {copiedId === selectedItem.id ? (
@@ -454,7 +452,7 @@ export const ClipboardHistory: React.FC = () => {
                       href={selectedItem.content}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-neutral-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-foreground hover:text-foreground bg-secondary hover:bg-accent border border-border transition-all"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Open in Browser</span>
@@ -464,7 +462,7 @@ export const ClipboardHistory: React.FC = () => {
                   {selectedItem.type === "email" && (
                     <a
                       href={`mailto:${selectedItem.content}`}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-neutral-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-foreground hover:text-foreground bg-secondary hover:bg-accent border border-border transition-all"
                     >
                       <Send className="w-3 h-3" />
                       <span>Send Email</span>
@@ -477,15 +475,15 @@ export const ClipboardHistory: React.FC = () => {
                     onClick={() => handleTogglePin(selectedItem.id)}
                     className={`p-1.5 rounded-lg border transition-all ${
                       selectedItem.isPinned
-                        ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                        : "text-neutral-400 hover:text-white hover:bg-white/10 border-transparent"
+                        ? "bg-primary/20 border-primary/40 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted border-transparent"
                     }`}
                     title={selectedItem.isPinned ? "Unpin item" : "Pin item"}
                   >
                     <Star
                       className={`w-3.5 h-3.5 ${
                         selectedItem.isPinned
-                          ? "fill-amber-400 text-amber-400"
+                          ? "fill-primary text-primary"
                           : ""
                       }`}
                     />
@@ -493,7 +491,7 @@ export const ClipboardHistory: React.FC = () => {
 
                   <button
                     onClick={() => handleDeleteItem(selectedItem.id)}
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                     title="Delete item"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -505,9 +503,9 @@ export const ClipboardHistory: React.FC = () => {
               <div className="flex-1 p-3 overflow-y-auto custom-scrollbar flex flex-col justify-center">
                 {/* 1. LINK PREVIEW CARD (Rich OpenGraph Banner & Excerpt) */}
                 {selectedItem.type === "link" && (
-                  <div className="bg-neutral-800/80 rounded-xl border border-white/5 overflow-hidden shadow-lg flex flex-col">
+                  <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg flex flex-col">
                     {selectedItem.previewUrl && (
-                      <div className="w-full h-28 overflow-hidden relative group bg-neutral-900">
+                      <div className="w-full h-28 overflow-hidden relative group bg-muted">
                         <img
                           src={selectedItem.previewUrl}
                           alt=""
@@ -516,15 +514,15 @@ export const ClipboardHistory: React.FC = () => {
                             (e.currentTarget as HTMLElement).style.display = "none";
                           }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/90 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
                       </div>
                     )}
                     <div className="p-2.5">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-white mb-1">
-                        <Globe className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground mb-1">
+                        <Globe className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                         <span className="truncate">{selectedItem.title}</span>
                       </div>
-                      <p className="text-[11px] text-neutral-400 line-clamp-3 leading-relaxed">
+                      <p className="text-[11px] text-muted-foreground line-clamp-3 leading-relaxed">
                         {selectedItem.description || selectedItem.content}
                       </p>
                     </div>
@@ -533,8 +531,8 @@ export const ClipboardHistory: React.FC = () => {
 
                 {/* 2. IMAGE PREVIEW */}
                 {selectedItem.type === "image" && (
-                  <div className="flex flex-col items-center justify-center h-full bg-black/40 rounded-xl border border-white/5 p-2 overflow-hidden">
-                    <div className="max-h-32 max-w-full rounded-lg overflow-hidden border border-white/5 shadow-md">
+                  <div className="flex flex-col items-center justify-center h-full bg-muted/40 rounded-xl border border-border p-2 overflow-hidden">
+                    <div className="max-h-32 max-w-full rounded-lg overflow-hidden border border-border shadow-md">
                       <img
                         src={selectedItem.previewUrl || selectedItem.content}
                         alt="Clipboard image"
@@ -542,7 +540,7 @@ export const ClipboardHistory: React.FC = () => {
                       />
                     </div>
                     {selectedItem.metadata?.dimensions && (
-                      <div className="mt-2 flex items-center gap-2 text-[10px] text-neutral-400 font-mono">
+                      <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
                         <span>{selectedItem.metadata.dimensions}</span>
                         {selectedItem.metadata.fileSize && (
                           <span>• {selectedItem.metadata.fileSize}</span>
@@ -556,18 +554,18 @@ export const ClipboardHistory: React.FC = () => {
                 {selectedItem.type === "color" && (
                   <div className="flex flex-col items-center justify-center gap-2 p-2">
                     <div
-                      className="w-16 h-16 rounded-2xl border border-white/20 shadow-2xl transition-transform hover:scale-105"
+                      className="w-16 h-16 rounded-2xl border border-border shadow-2xl transition-transform hover:scale-105"
                       style={{ backgroundColor: selectedItem.content }}
                     />
-                    <div className="text-sm font-mono font-bold text-white tracking-wide">
+                    <div className="text-sm font-mono font-bold text-foreground tracking-wide">
                       {selectedItem.content}
                     </div>
                     {selectedItem.metadata?.colorFormats && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-400">
-                        <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                        <span className="px-2 py-0.5 rounded bg-muted border border-border">
                           {selectedItem.metadata.colorFormats.rgb}
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                        <span className="px-2 py-0.5 rounded bg-muted border border-border">
                           {selectedItem.metadata.colorFormats.hsl}
                         </span>
                       </div>
@@ -577,14 +575,14 @@ export const ClipboardHistory: React.FC = () => {
 
                 {/* 4. EMAIL ADDRESS CARD */}
                 {selectedItem.type === "email" && (
-                  <div className="flex flex-col items-center justify-center p-3 text-center bg-neutral-800/40 rounded-xl border border-white/5">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center mb-2 text-sm font-bold shadow-md">
+                  <div className="flex flex-col items-center justify-center p-3 text-center bg-card rounded-xl border border-border">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/40 text-primary flex items-center justify-center mb-2 text-sm font-bold shadow-md">
                       {selectedItem.content.charAt(0).toUpperCase()}
                     </div>
-                    <div className="text-xs font-semibold text-white mb-0.5 font-mono truncate max-w-full">
+                    <div className="text-xs font-semibold text-foreground mb-0.5 font-mono truncate max-w-full">
                       {selectedItem.content}
                     </div>
-                    <div className="text-[10px] text-neutral-400">
+                    <div className="text-[10px] text-muted-foreground">
                       Email Address
                     </div>
                   </div>
@@ -592,15 +590,15 @@ export const ClipboardHistory: React.FC = () => {
 
                 {/* 5. FOLDER CARD */}
                 {selectedItem.type === "folder" && (
-                  <div className="flex items-center gap-3 p-3 bg-neutral-800/60 rounded-xl border border-white/5">
-                    <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border">
+                    <div className="w-10 h-10 rounded-lg bg-accent/20 border border-accent/40 text-accent-foreground flex items-center justify-center flex-shrink-0">
                       <Folder className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-white truncate">
+                      <div className="text-xs font-bold text-foreground truncate">
                         {selectedItem.title}
                       </div>
-                      <div className="text-[10px] text-neutral-400 font-mono truncate">
+                      <div className="text-[10px] text-muted-foreground font-mono truncate">
                         {selectedItem.metadata?.fileSize || selectedItem.content}
                       </div>
                     </div>
@@ -613,17 +611,17 @@ export const ClipboardHistory: React.FC = () => {
                   selectedItem.type !== "color" &&
                   selectedItem.type !== "email" &&
                   selectedItem.type !== "folder" && (
-                    <div className="p-3 bg-black/60 rounded-xl border border-white/5 font-mono text-xs text-neutral-200 max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed">
+                    <div className="p-3 bg-muted/40 rounded-xl border border-border font-mono text-xs text-foreground max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed">
                       {selectedItem.content}
                     </div>
                   )}
               </div>
 
               {/* Bottom Metadata Section (Matches reference layout) */}
-              <div className="px-3 py-2 border-t border-white/5 bg-black/40 text-[10px] text-neutral-400 space-y-1">
+              <div className="px-3 py-2 border-t border-border bg-muted/20 text-[10px] text-muted-foreground space-y-1">
                 <div className="flex items-center justify-between">
                   <span>Application</span>
-                  <div className="flex items-center gap-1.5 text-white font-medium">
+                  <div className="flex items-center gap-1.5 text-foreground font-medium">
                     {getAppBadge(selectedItem.metadata?.appName)}
                     <span>{selectedItem.metadata?.appName || "DynamicWin"}</span>
                   </div>
@@ -631,7 +629,7 @@ export const ClipboardHistory: React.FC = () => {
 
                 <div className="flex items-center justify-between">
                   <span>Type</span>
-                  <span className="capitalize text-neutral-300 font-medium">
+                  <span className="capitalize text-foreground font-medium">
                     {selectedItem.type}
                   </span>
                 </div>
@@ -640,21 +638,21 @@ export const ClipboardHistory: React.FC = () => {
                   <span>
                     {selectedItem.type === "link" ? "URL" : "Content"}
                   </span>
-                  <span className="text-neutral-300 font-mono truncate max-w-[180px]">
+                  <span className="text-foreground font-mono truncate max-w-[180px]">
                     {selectedItem.content}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span>Copy time</span>
-                  <span className="text-neutral-300">
+                  <span className="text-foreground">
                     {formatDateTime(selectedItem.timestamp)}
                   </span>
                 </div>
               </div>
             </>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-neutral-500 p-4">
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
               <Layers className="w-8 h-8 mb-2 opacity-30" />
               <span className="text-xs">
                 {items.length === 0

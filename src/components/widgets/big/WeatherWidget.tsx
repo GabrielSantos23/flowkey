@@ -40,7 +40,7 @@ export const WeatherWidget: React.FC = () => {
   }, [settings.use_celsius]);
 
   const getWeatherIcon = (icon: string) => {
-    const cls = "w-10 h-10 text-island-primary drop-shadow-md";
+    const cls = "w-10 h-10 text-primary drop-shadow-md";
     switch (icon) {
       case "sunny":
         return <Sun className={`${cls} text-amber-400`} />;
@@ -72,17 +72,17 @@ export const WeatherWidget: React.FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-island-widget backdrop-blur-md p-4 flex flex-col justify-between border border-white/5 shadow-inner transition-all hover:border-white/10 group min-w-[200px] flex-1 select-none">
+    <div className="relative overflow-hidden rounded-2xl bg-card backdrop-blur-md p-4 flex flex-col justify-between border border-border shadow-inner transition-all hover:border-border group min-w-[200px] flex-1 select-none">
       {/* Top row: City & Condition */}
       <div className="flex items-center justify-between gap-2 z-10">
         <div className="flex items-center gap-1.5 min-w-0" onClick={toggleHideLocation} title="Click to toggle location visibility">
-          <MapPin className="w-3.5 h-3.5 text-island-primary flex-shrink-0 cursor-pointer" />
-          <span className="text-xs font-semibold text-island-textMain truncate">
+          <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0 cursor-pointer" />
+          <span className="text-xs font-semibold text-foreground truncate">
             {settings.hide_location ? "••••••" : weather.city}
           </span>
         </div>
 
-        <span className="text-[11px] font-medium text-island-textSecond capitalize truncate">
+        <span className="text-[11px] font-medium text-muted-foreground capitalize truncate">
           {loading ? "Updating..." : weather.weather_text}
         </span>
       </div>
@@ -90,10 +90,10 @@ export const WeatherWidget: React.FC = () => {
       {/* Main Temperature & Big Icon */}
       <div className="flex items-end justify-between mt-2 z-10">
         <div className="cursor-pointer group/temp" onClick={toggleUnits} title="Click to toggle °C / °F">
-          <span className="text-3xl font-extrabold text-island-textMain tracking-tight">
+          <span className="text-3xl font-extrabold text-foreground tracking-tight">
             {settings.use_celsius ? Math.round(weather.temp_c) : Math.round(weather.temp_f)}
           </span>
-          <span className="text-sm font-semibold text-island-primary ml-1 group-hover/temp:underline">
+          <span className="text-sm font-semibold text-primary ml-1 group-hover/temp:underline">
             {settings.use_celsius ? "°C" : "°F"}
           </span>
         </div>

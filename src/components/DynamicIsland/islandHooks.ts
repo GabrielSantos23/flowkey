@@ -62,11 +62,13 @@ export function useIslandMask(dependencies: {
   isPlaying: boolean;
   isPomodoroActive: boolean;
   showIdleClock?: boolean;
+  isWheelPreviewing?: boolean;
+  isSearchExpanded?: boolean;
 }) {
   const {
     isSettingsOpen, activeOverlay, incomingTransfer, currentTransfer,
     isExpanded, viewMode, isQueueOpen, isDualActive, isPlaying, isPomodoroActive,
-    showIdleClock = false
+    showIdleClock = false, isWheelPreviewing = false, isSearchExpanded = false
   } = dependencies;
 
   const lastMaskRef = useRef<{ w: number; h: number } | null>(null);
@@ -78,37 +80,45 @@ export function useIslandMask(dependencies: {
         return;
       }
 
-      let targetW = 280;
+      let targetW = 210;
       let targetH = 48;
 
-      if (activeOverlay === "drop-file") {
-        targetW = 250;
-        targetH = 68;
-      } else if (activeOverlay === "drop-localsend") {
-        targetW = 380;
-        targetH = 190;
-      } else if (activeOverlay === "tray-confirmed") {
+      if (activeOverlay === "volume" || activeOverlay === "brightness") {
         targetW = 240;
+        targetH = 50;
+      } else if (activeOverlay === "drop-file") {
+        targetW = 460;
+        targetH = 150;
+      } else if (activeOverlay === "drop-localsend") {
+        targetW = 480;
+        targetH = 250;
+      } else if (activeOverlay === "tray-confirmed") {
+        targetW = 260;
         targetH = 48;
+      } else if (activeOverlay === "spotify-search") {
+        if (isSearchExpanded) {
+          targetW = 636;
+          targetH = 425;
+        } else {
+          targetW = 396;
+          targetH = 48;
+        }
       } else if (incomingTransfer) {
         targetW = 380;
-        targetH = 64;
+        targetH = 175;
       } else if (currentTransfer) {
-        targetW = 400;
-        targetH = 70;
-      } else if (activeOverlay === "volume" || activeOverlay === "brightness") {
-        targetW = 280;
-        targetH = 48;
+        targetW = 340;
+        targetH = 110;
       } else if (isExpanded) {
         if (viewMode === "clipboard") {
           targetW = 600;
-          targetH = 460;
+          targetH = 390;
         } else if (viewMode === "translate") {
-          targetW = 610;
-          targetH = 340;
+          targetW = 600;
+          targetH = 270;
         } else if (viewMode === "tray") {
           targetW = 510;
-          targetH = 175;
+          targetH = 120;
         } else if (viewMode === "spotify") {
           targetW = isQueueOpen ? 610 : 340;
           targetH = 195;
@@ -123,9 +133,17 @@ export function useIslandMask(dependencies: {
         if (isDualActive) {
           targetW = 230;
           targetH = 48;
-        } else if (showIdleClock && !isPlaying && !isPomodoroActive) {
-          targetW = 150;
-          targetH = 48;
+        } else if (!isWheelPreviewing) {
+          if (isPlaying) {
+            targetW = 230;
+            targetH = 48;
+          } else if (isPomodoroActive) {
+            targetW = 210;
+            targetH = 48;
+          } else {
+            targetW = 150;
+            targetH = 48;
+          }
         } else if (viewMode === "pomodoro" || isPomodoroActive) {
           targetW = 210;
           targetH = 48;
@@ -151,7 +169,7 @@ export function useIslandMask(dependencies: {
 
       invoke("update_input_mask", { x: maskX, y: 0, width: targetW, height: targetH }).catch(() => {});
     } catch {}
-  }, [isSettingsOpen, activeOverlay, incomingTransfer, currentTransfer, isExpanded, viewMode, isQueueOpen, isDualActive, isPlaying, isPomodoroActive, showIdleClock]);
+  }, [isSettingsOpen, activeOverlay, incomingTransfer, currentTransfer, isExpanded, viewMode, isQueueOpen, isDualActive, isPlaying, isPomodoroActive, showIdleClock, isWheelPreviewing, isSearchExpanded]);
 
   useEffect(() => {
     syncInputMask();

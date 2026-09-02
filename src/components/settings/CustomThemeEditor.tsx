@@ -26,16 +26,16 @@ export const CustomThemeEditor: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-3 p-3 bg-black/30 rounded-xl border border-white/5">
+    <div className="space-y-3 p-3 bg-card rounded-xl border border-border">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-white">Custom Theme Palette</h4>
-        <span className="text-[10px] text-neutral-400">Live JSON Theme</span>
+        <h4 className="text-xs font-semibold text-foreground">Custom Theme Palette</h4>
+        <span className="text-[10px] text-muted-foreground">Live JSON Theme</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
         {fields.map(({ key, label }) => (
-          <div key={key} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white/5">
-            <span className="text-[11px] text-neutral-300 truncate">{label}</span>
+          <div key={key} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-muted/40 border border-border">
+            <span className="text-[11px] text-foreground truncate">{label}</span>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <input
                 type="color"
@@ -47,7 +47,7 @@ export const CustomThemeEditor: React.FC = () => {
                 type="text"
                 value={customTheme[key]}
                 onChange={(e) => handleChange(key, e.target.value)}
-                className="w-16 px-1 py-0.5 rounded text-[10px] font-mono bg-black/60 text-neutral-200 border border-white/10 text-center focus:outline-none"
+                className="w-16 px-1 py-0.5 rounded text-[10px] font-mono bg-background text-foreground border border-input text-center focus:outline-none"
               />
             </div>
           </div>

@@ -57,22 +57,18 @@ export const IncomingTransferOverlay: React.FC<IncomingTransferOverlayProps> = (
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -4 }}
       transition={{ type: "spring", stiffness: 450, damping: 30 }}
-      className="flex items-center justify-between gap-3 px-3.5 py-2 w-full select-none text-white"
+      className="flex items-center justify-between gap-3 px-3.5 py-2 w-full select-none text-foreground"
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className="relative flex-shrink-0">
           <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center bg-zinc-900 border border-white/20 ${
-              isText
-                ? " "
-                : " text-emerald-400"
-            }`}
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-card border border-border text-primary"
           >
             {getDeviceIcon(transfer.sender.deviceType)}
           </div>
           <div
-            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-black ${
-              isText ? "bg-amber-400" : "bg-emerald-500"
+            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${
+              isText ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground"
             }`}
           >
             {isText ? (
@@ -85,16 +81,16 @@ export const IncomingTransferOverlay: React.FC<IncomingTransferOverlayProps> = (
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-white truncate max-w-[130px]">
+            <span className="text-xs font-bold text-foreground truncate max-w-[130px]">
               {transfer.sender.alias}
             </span>
 
           </div>
-          <div className="flex items-center gap-1 text-[10px] text-neutral-300 truncate font-mono">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate font-mono">
             {isText ? (
-              <MessageSquare className="w-2.5 h-2.5 flex-shrink-0 text-amber-400" />
+              <MessageSquare className="w-2.5 h-2.5 flex-shrink-0 text-primary" />
             ) : (
-              <File className="w-2.5 h-2.5 flex-shrink-0 text-neutral-500" />
+              <File className="w-2.5 h-2.5 flex-shrink-0 text-muted-foreground" />
             )}
             <span className="truncate italic">"{fileSummary}"</span>
           </div>
@@ -105,7 +101,7 @@ export const IncomingTransferOverlay: React.FC<IncomingTransferOverlayProps> = (
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
           onClick={onReject}
-          className="p-1.5 rounded-full bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-neutral-400 active:scale-90 transition-all"
+          className="p-1.5 rounded-full bg-secondary hover:bg-destructive/20 hover:text-destructive text-muted-foreground active:scale-90 transition-all"
           title="Decline"
         >
           <X className="w-3.5 h-3.5" />
@@ -113,11 +109,7 @@ export const IncomingTransferOverlay: React.FC<IncomingTransferOverlayProps> = (
 
         <button
           onClick={onAccept}
-          className={`flex items-center gap-1 px-3 py-1 rounded-full text-black text-xs font-bold active:scale-95 shadow-md transition-all ${
-            isText
-              ? "bg-amber-400 hover:bg-amber-300 shadow-amber-500/20"
-              : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20"
-          }`}
+          className="flex items-center gap-1 px-3 py-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold active:scale-95 shadow-md transition-all"
           title={isText ? "Receive & Copy Text" : "Accept & Save"}
         >
           {isText ? (

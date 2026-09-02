@@ -230,7 +230,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
           justify-between
           p-4
           bg-transparent
-          text-white
+          text-foreground
           select-none
           gap-3
         "
@@ -245,7 +245,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
       {/* -------------------------------------------- */}
 
       <div className="flex items-center justify-center">
-        <div className="flex items-center gap-1 p-1 rounded-full bg-black/60 border border-white/10">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-muted border border-border">
           <button
             onClick={() => setMode("focus")}
             disabled={isRunning}
@@ -259,7 +259,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
               ${
                 mode === "focus"
                   ? "bg-[#ff9f0a]/25 text-[#ff9f0a] border border-[#ff9f0a]/40 shadow-sm"
-                  : "text-neutral-400 hover:text-white"
+                  : "text-muted-foreground hover:text-foreground"
               }
               ${
                 isRunning
@@ -284,7 +284,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
               ${
                 mode === "break"
                   ? "bg-[#3fa9f5]/25 text-[#3fa9f5] border border-[#3fa9f5]/40 shadow-sm"
-                  : "text-neutral-400 hover:text-white"
+                  : "text-muted-foreground hover:text-foreground"
               }
               ${
                 isRunning
@@ -331,8 +331,8 @@ export const PomodoroExpandedWidget: React.FC = () => {
                 z-20
                 pointer-events-none
                 bg-gradient-to-r
-                from-[#000000]
-                via-[#000000]/70
+                from-background
+                via-background/70
                 to-transparent
               "
             />
@@ -348,8 +348,8 @@ export const PomodoroExpandedWidget: React.FC = () => {
                 z-20
                 pointer-events-none
                 bg-gradient-to-l
-                from-[#000000]
-                via-[#000000]/70
+                from-background
+                via-background/70
                 to-transparent
               "
             />
@@ -401,8 +401,8 @@ export const PomodoroExpandedWidget: React.FC = () => {
                         transition-all
                         ${
                           isActive
-                            ? "text-white font-bold scale-110"
-                            : "text-white/25"
+                            ? "text-foreground font-bold scale-110"
+                            : "text-muted-foreground/40"
                         }
                       `}
                     >
@@ -417,10 +417,10 @@ export const PomodoroExpandedWidget: React.FC = () => {
                       transition-all
                       ${
                         isActive
-                          ? "w-[2px] h-3 bg-white"
+                          ? "w-[2px] h-3 bg-primary"
                           : isMajor
-                          ? "w-px h-3 bg-white/30"
-                          : "w-px h-1.5 bg-white/15"
+                          ? "w-px h-3 bg-muted-foreground/30"
+                          : "w-px h-1.5 bg-muted-foreground/15"
                       }
                     `}
                   />
@@ -535,8 +535,8 @@ export const PomodoroExpandedWidget: React.FC = () => {
               active:scale-95
               ${
                 soundAlert
-                  ? "bg-white/15 text-white hover:bg-white/20"
-                  : "bg-white/5 text-neutral-500 hover:text-white"
+                  ? "bg-primary/20 text-primary hover:bg-primary/30"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }
             `}
             title={
@@ -546,9 +546,9 @@ export const PomodoroExpandedWidget: React.FC = () => {
             }
           >
             {soundAlert ? (
-              <Volume2 className="w-3.5 h-3.5 text-white" />
+              <Volume2 className="w-3.5 h-3.5 text-primary" />
             ) : (
-              <VolumeX className="w-3.5 h-3.5 text-neutral-400" />
+              <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
             )}
           </button>
 
@@ -563,10 +563,10 @@ export const PomodoroExpandedWidget: React.FC = () => {
                 w-8
                 h-8
                 rounded-full
-                bg-white/10
-                hover:bg-white/20
-                text-neutral-300
-                hover:text-white
+                bg-secondary
+                hover:bg-accent
+                text-muted-foreground
+                hover:text-foreground
                 flex
                 items-center
                 justify-center

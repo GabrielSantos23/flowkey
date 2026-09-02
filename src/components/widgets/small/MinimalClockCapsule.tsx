@@ -14,10 +14,10 @@ export const MinimalClockCapsule: React.FC = () => {
     <div
       className="flex items-center justify-center w-full h-full select-none"
     >
-      <div className="flex items-center justify-center font-mono text-[13px] font-semibold tracking-wider text-white/90 leading-none">
+      <div className="flex items-center justify-center font-mono text-[13px] font-semibold tracking-wider text-foreground leading-none">
         <span className="tabular-nums">{hours}</span>
         <span
-          className={`transition-opacity duration-300 w-[6px] text-center text-white/60 leading-none ${
+          className={`transition-opacity duration-300 w-[6px] text-center text-muted-foreground leading-none ${
             showColon ? "opacity-100" : "opacity-30"
           }`}
         >

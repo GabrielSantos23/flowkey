@@ -42,22 +42,22 @@ export const BatteryWidget: React.FC = () => {
 
   const getBatteryIcon = () => {
     if (battery.is_charging) {
-      return <BatteryCharging className="w-4 h-4 text-emerald-400 animate-pulse" />;
+      return <BatteryCharging className="w-4 h-4 text-primary animate-pulse" />;
     }
     if (battery.percentage <= 20) {
-      return <BatteryLow className="w-4 h-4 text-rose-500" />;
+      return <BatteryLow className="w-4 h-4 text-destructive" />;
     }
     if (battery.percentage <= 60) {
-      return <BatteryMedium className="w-4 h-4 text-amber-400" />;
+      return <BatteryMedium className="w-4 h-4 text-accent-foreground" />;
     }
     if (battery.percentage < 95) {
-      return <Battery className="w-4 h-4 text-island-textSecond" />;
+      return <Battery className="w-4 h-4 text-muted-foreground" />;
     }
-    return <BatteryFull className="w-4 h-4 text-emerald-400" />;
+    return <BatteryFull className="w-4 h-4 text-primary" />;
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-island-textSecond select-none">
+    <div className="flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-muted-foreground select-none">
       {getBatteryIcon()}
       <span className="font-mono text-[11px] font-medium">{battery.percentage}%</span>
     </div>

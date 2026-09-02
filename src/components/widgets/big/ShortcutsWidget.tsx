@@ -79,12 +79,12 @@ export const ShortcutsWidget: React.FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-island-widget backdrop-blur-md p-4 flex flex-col justify-between border border-white/5 shadow-inner transition-all hover:border-white/10 group min-w-[240px] flex-1 select-none">
+    <div className="relative overflow-hidden rounded-2xl bg-card backdrop-blur-md p-4 flex flex-col justify-between border border-border shadow-inner transition-all hover:border-border group min-w-[240px] flex-1 select-none">
       <div className="flex items-center justify-between z-10 mb-2">
-        <span className="text-xs font-semibold text-island-textSecond uppercase tracking-wider">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Quick Launch
         </span>
-        <span className="text-[10px] text-island-textThird">4 slots</span>
+        <span className="text-[10px] text-muted-foreground">4 slots</span>
       </div>
 
       {/* Grid of 4 shortcut buttons */}
@@ -99,22 +99,22 @@ export const ShortcutsWidget: React.FC = () => {
             }}
             className={`group/btn relative flex items-center gap-2 p-2 rounded-xl border transition-all cursor-pointer ${
               sc.path
-                ? "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 active:scale-95"
-                : "border-dashed border-white/15 hover:border-white/30 bg-transparent hover:bg-white/5"
+                ? "bg-card border-border hover:bg-accent/40 hover:border-border active:scale-95"
+                : "border-dashed border-border hover:border-primary/40 bg-transparent hover:bg-muted"
             }`}
           >
             {sc.path ? (
               <>
-                <div className="p-1 rounded-lg bg-black/30 border border-white/5 flex-shrink-0">
+                <div className="p-1 rounded-lg bg-muted border border-border flex-shrink-0">
                   {getIcon(sc)}
                 </div>
-                <span className="text-xs font-medium text-island-textMain truncate flex-1">
+                <span className="text-xs font-medium text-foreground truncate flex-1">
                   {sc.name || "Shortcut"}
                 </span>
-                <ExternalLink className="w-3 h-3 text-island-textThird opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/btn:opacity-100 transition-opacity" />
               </>
             ) : (
-              <div className="flex items-center justify-center gap-1.5 w-full py-1 text-island-textThird group-hover/btn:text-island-textSecond">
+              <div className="flex items-center justify-center gap-1.5 w-full py-1 text-muted-foreground group-hover/btn:text-foreground">
                 <Plus className="w-3.5 h-3.5" />
                 <span className="text-xs">Add</span>
               </div>
@@ -126,34 +126,34 @@ export const ShortcutsWidget: React.FC = () => {
       {/* Configure Modal */}
       {editingIndex !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
           onClick={() => setEditingIndex(null)}
         >
           <div
-            className="w-full max-w-xs rounded-2xl bg-neutral-900 border border-white/15 p-4 shadow-2xl space-y-3"
+            className="w-full max-w-xs rounded-2xl bg-popover border border-border p-4 shadow-2xl space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-white">Configure Slot {editingIndex + 1}</h3>
+            <h3 className="text-sm font-semibold text-foreground">Configure Slot {editingIndex + 1}</h3>
             <form onSubmit={handleSaveEdit} className="space-y-2">
               <div>
-                <label className="text-[11px] text-neutral-400 block mb-1">Name</label>
+                <label className="text-[11px] text-muted-foreground block mb-1">Name</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="e.g. Browser, VS Code"
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/50 border border-white/10 text-xs text-white placeholder:text-neutral-600 focus:outline-none focus:border-island-primary"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-background border border-input text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] text-neutral-400 block mb-1">Path or URL</label>
+                <label className="text-[11px] text-muted-foreground block mb-1">Path or URL</label>
                 <input
                   type="text"
                   value={editPath}
                   onChange={(e) => setEditPath(e.target.value)}
                   placeholder="https://... or /usr/bin/... or C:\..."
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/50 border border-white/10 text-xs text-white placeholder:text-neutral-600 focus:outline-none focus:border-island-primary"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-background border border-input text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -166,20 +166,20 @@ export const ShortcutsWidget: React.FC = () => {
                     saveShortcuts(next);
                     setEditingIndex(null);
                   }}
-                  className="px-2.5 py-1 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10"
+                  className="px-2.5 py-1 rounded-lg text-xs text-destructive hover:bg-destructive/10"
                 >
                   Clear
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingIndex(null)}
-                  className="px-2.5 py-1 rounded-lg text-xs text-neutral-400 hover:bg-white/5"
+                  className="px-2.5 py-1 rounded-lg text-xs text-muted-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-island-primary text-black hover:brightness-110"
+                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Save
                 </button>

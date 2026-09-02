@@ -26,13 +26,13 @@ export const SystemUsageWidget: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-2.5 px-2 py-0.5 text-[11px] font-mono text-island-textSecond select-none">
+    <div className="flex items-center gap-2.5 px-2 py-0.5 text-[11px] font-mono text-muted-foreground select-none">
       <div className="flex items-center gap-1">
-        <Cpu className="w-3.5 h-3.5 text-island-primary opacity-80" />
+        <Cpu className="w-3.5 h-3.5 text-primary opacity-80" />
         <span>{stats.cpu_usage.toFixed(0)}%</span>
       </div>
       <div className="flex items-center gap-1">
-        <HardDrive className="w-3.5 h-3.5 text-island-primary opacity-80" />
+        <HardDrive className="w-3.5 h-3.5 text-primary opacity-80" />
         <span>{stats.ram_used_gb.toFixed(1)}GB</span>
       </div>
     </div>

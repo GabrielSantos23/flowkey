@@ -21,10 +21,7 @@ export const PomodoroBubbleWidget: React.FC<PomodoroBubbleWidgetProps> = ({ onCl
       onClick={onClick}
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.92 }}
-      className="relative pointer-events-auto w-8 h-8 rounded-full bg-black border border-white/15 flex items-center justify-center shadow-island cursor-pointer flex-shrink-0"
-      style={{
-        boxShadow: "0 8px 20px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)",
-      }}
+      className="relative pointer-events-auto w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center shadow-island cursor-pointer flex-shrink-0"
       title="Pomodoro Timer"
     >
       {/* Circular Progress Ring */}
@@ -35,8 +32,9 @@ export const PomodoroBubbleWidget: React.FC<PomodoroBubbleWidgetProps> = ({ onCl
           cy="16"
           r={radius}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.12)"
+          stroke="currentColor"
           strokeWidth="2.5"
+          className="text-muted"
         />
 
         {/* Dynamic Progress Stroke (Filled when started, empties as time runs out) */}
@@ -58,7 +56,7 @@ export const PomodoroBubbleWidget: React.FC<PomodoroBubbleWidgetProps> = ({ onCl
       <div className="relative z-10 flex items-center justify-center">
         <Timer
           className={`w-3.5 h-3.5 ${
-            isPaused ? "text-amber-400" : isRunning ? "text-[#ff9f0a]" : "text-white"
+            isPaused ? "text-amber-400" : isRunning ? "text-[#ff9f0a]" : "text-foreground"
           }`}
         />
       </div>

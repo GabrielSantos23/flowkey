@@ -533,3 +533,82 @@ pub fn get_media_info() -> MediaInfo {
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     default_media_info()
 }
+
+#[tauri::command]
+pub fn open_spotify() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            EnumWindows, GetWindowTextW, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW, IsIconic, GetClassNameW
+        };
+        use windows_sys::Win32::Foundation::{HWND, LPARAM, BOOL};
+
+        struct FindSpotifyData {
+            found_hwnd: Option<HWND>,
+        }
+
+        unsafe extern "system" fn find_spotify_enum(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            let data = &mut *(lparam as *mut FindSpotifyData);
+            let mut buf = [0u16; 512];
+            let len = GetWindowTextW(hwnd, buf.as_mut_ptr(), 512);
+            if len > 0 {
+                let text = String::from_utf16_lossy(&buf[..len as usize]);
+                let trimmed = text.trim();
+                if trimmed == "Spotify"
+                    || trimmed == "Spotify Premium"
+                    || trimmed == "Spotify Free"
+                    || trimmed.contains(" - ")
+                {
+                    let mut class_buf = [0u16; 256];
+                    let class_len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), 256);
+                    if class_len > 0 {
+                        let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+                        if class_name.contains("Chrome_WidgetWin_0") {
+                            data.found_hwnd = Some(hwnd);
+                            return 0; // stop enumeration
+                        }
+                    }
+                }
+            }
+            1
+        }
+
+        let mut data = FindSpotifyData { found_hwnd: None };
+        unsafe {
+            EnumWindows(Some(find_spotify_enum), &mut data as *mut _ as _);
+        }
+
+        if let Some(hwnd) = data.found_hwnd {
+            unsafe {
+                if IsIconic(hwnd) != 0 {
+                    ShowWindow(hwnd, SW_RESTORE);
+                } else {
+                    ShowWindow(hwnd, SW_SHOW);
+                }
+                SetForegroundWindow(hwnd);
+            }
+        }
+
+        use std::process::Command;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = Command::new("cmd")
+            .args(["/C", "start", "", "spotify:"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        let _ = Command::new("spotify").spawn();
+        Ok(())
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Ok(())
+    }
+}

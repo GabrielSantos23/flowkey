@@ -17,7 +17,7 @@ export const TimeWidget: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold tracking-wide text-island-textSecond select-none font-mono">
+    <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold tracking-wide text-muted-foreground select-none font-mono">
       <span>{timeStr || "00:00"}</span>
     </div>
   );

@@ -16,35 +16,35 @@ export const SettingsModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
       onClick={() => setIsSettingsOpen(false)}
     >
       <div
-        className="relative w-full max-w-xl max-h-[85vh] rounded-3xl bg-neutral-900/95 border border-white/15 p-6 shadow-2xl flex flex-col gap-4 overflow-hidden text-neutral-100"
+        className="relative w-full max-w-xl max-h-[85vh] rounded-3xl bg-popover/95 border border-border p-6 shadow-2xl flex flex-col gap-4 overflow-hidden text-popover-foreground"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-island-primary/20 text-island-primary">
+            <div className="p-2 rounded-xl bg-primary/20 text-primary">
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white leading-none">DynamicWin Settings</h2>
-              <p className="text-xs text-neutral-400 mt-1">Configure island appearance and behavior</p>
+              <h2 className="text-base font-bold text-foreground leading-none">DynamicWin Settings</h2>
+              <p className="text-xs text-muted-foreground mt-1">Configure island appearance and behavior</p>
             </div>
           </div>
 
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="p-2 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
+            className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent active:scale-95 transition-all"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/40 border border-white/5">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/40 border border-border">
           {[
             { id: "general", label: "General", icon: Sparkles },
             { id: "localsend", label: "LocalSend", icon: Send },
@@ -57,8 +57,8 @@ export const SettingsModal: React.FC = () => {
               onClick={() => setActiveTab(id as typeof activeTab)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-1 justify-center ${
                 activeTab === id
-                  ? "bg-white/15 text-white shadow-sm font-semibold"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
+                  ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -73,38 +73,38 @@ export const SettingsModal: React.FC = () => {
             <div className="space-y-4">
               {/* Island Mode Style */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-neutral-300">Island Style</label>
+                <label className="text-xs font-semibold text-foreground">Island Style</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => updateSettings({ island_mode: "island" })}
                     className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border transition-all ${
                       settings.island_mode === "island"
-                        ? "bg-island-primary/20 border-island-primary text-white shadow-md"
-                        : "bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10"
+                        ? "bg-primary/20 border-primary text-primary shadow-md"
+                        : "bg-secondary border-border text-muted-foreground hover:bg-accent"
                     }`}
                   >
-                    <div className="w-20 h-5 rounded-full bg-black/60 border border-white/20 shadow-inner" />
-                    <span className="text-xs font-semibold">Floating Island</span>
-                    <span className="text-[10px] text-neutral-400">Pill floating below screen top</span>
+                    <div className="w-20 h-5 rounded-full bg-background border border-border shadow-inner" />
+                    <span className="text-xs font-semibold text-foreground">Floating Island</span>
+                    <span className="text-[10px] text-muted-foreground">Pill floating below screen top</span>
                   </button>
 
                   <button
                     onClick={() => updateSettings({ island_mode: "notch" })}
                     className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border transition-all ${
                       settings.island_mode === "notch"
-                        ? "bg-island-primary/20 border-island-primary text-white shadow-md"
-                        : "bg-white/5 border-white/10 text-neutral-400 hover:bg-white/10"
+                        ? "bg-primary/20 border-primary text-primary shadow-md"
+                        : "bg-secondary border-border text-muted-foreground hover:bg-accent"
                     }`}
                   >
-                    <div className="w-20 h-5 rounded-b-xl bg-black/60 border-b border-x border-white/20 shadow-inner" />
-                    <span className="text-xs font-semibold">MacBook Notch</span>
-                    <span className="text-[10px] text-neutral-400">Attached to screen top with curves</span>
+                    <div className="w-20 h-5 rounded-b-xl bg-background border-b border-x border-border shadow-inner" />
+                    <span className="text-xs font-semibold text-foreground">MacBook Notch</span>
+                    <span className="text-[10px] text-muted-foreground">Attached to screen top with curves</span>
                   </button>
                 </div>
               </div>
 
               {/* Toggles */}
-              <div className="space-y-2 pt-2 border-t border-white/10">
+              <div className="space-y-2 pt-2 border-t border-border">
                 {[
                   {
                     key: "allow_animation",
@@ -142,18 +142,18 @@ export const SettingsModal: React.FC = () => {
                     <div
                       key={key}
                       onClick={() => updateSettings({ [key]: !val })}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-card hover:bg-accent/40 transition-colors cursor-pointer border border-border"
                     >
                       <div>
-                        <p className="text-xs font-semibold text-white">{label}</p>
-                        <p className="text-[11px] text-neutral-400">{desc}</p>
+                        <p className="text-xs font-semibold text-foreground">{label}</p>
+                        <p className="text-[11px] text-muted-foreground">{desc}</p>
                       </div>
                       <div
                         className={`w-9 h-5 rounded-full transition-colors relative flex items-center p-0.5 ${
-                          val ? "bg-island-primary justify-end" : "bg-white/20 justify-start"
+                          val ? "bg-primary justify-end" : "bg-muted justify-start"
                         }`}
                       >
-                        <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+                        <div className="w-4 h-4 rounded-full bg-primary-foreground shadow-md" />
                       </div>
                     </div>
                   );
@@ -164,7 +164,7 @@ export const SettingsModal: React.FC = () => {
 
           {activeTab === "localsend" && (
             <div className="space-y-3">
-              <div className="p-1 rounded-2xl bg-neutral-900/60 border border-white/10">
+              <div className="p-1 rounded-2xl bg-card/60 border border-border">
                 <LocalSendWidget />
               </div>
             </div>
@@ -172,7 +172,7 @@ export const SettingsModal: React.FC = () => {
 
           {activeTab === "themes" && (
             <div className="space-y-4">
-              <label className="text-xs font-semibold text-neutral-300">Preset Themes</label>
+              <label className="text-xs font-semibold text-foreground">Preset Themes</label>
               <div className="grid grid-cols-3 gap-2">
                 {presetNames.map((name, idx) => (
                   <button
@@ -180,16 +180,16 @@ export const SettingsModal: React.FC = () => {
                     onClick={() => updateSettings({ theme_index: idx })}
                     className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium transition-all ${
                       themeIndex === idx
-                        ? "bg-island-primary/20 border-island-primary text-white font-semibold"
-                        : "bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10"
+                        ? "bg-primary text-primary-foreground border-primary font-semibold"
+                        : "bg-secondary border-border text-foreground hover:bg-accent"
                     }`}
                   >
                     {name === "Dark" ? (
-                      <Moon className="w-4 h-4 text-slate-300" />
+                      <Moon className="w-4 h-4 text-primary" />
                     ) : name === "Light" ? (
-                      <Sun className="w-4 h-4 text-amber-400" />
+                      <Sun className="w-4 h-4 text-accent-foreground" />
                     ) : (
-                      <Palette className="w-4 h-4 text-island-primary" />
+                      <Palette className="w-4 h-4 text-primary" />
                     )}
                     <span>{name}</span>
                   </button>
@@ -199,11 +199,11 @@ export const SettingsModal: React.FC = () => {
                   onClick={() => updateSettings({ theme_index: -1 })}
                   className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium transition-all ${
                     themeIndex === -1
-                      ? "bg-island-primary/20 border-island-primary text-white font-semibold"
-                      : "bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10"
+                      ? "bg-primary text-primary-foreground border-primary font-semibold"
+                      : "bg-secondary border-border text-foreground hover:bg-accent"
                   }`}
                 >
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <Sparkles className="w-4 h-4 text-accent-foreground" />
                   <span>Custom JSON</span>
                 </button>
               </div>
@@ -216,10 +216,10 @@ export const SettingsModal: React.FC = () => {
 
           {activeTab === "display" && (
             <div className="space-y-3">
-              <label className="text-xs font-semibold text-neutral-300">Display & Positioning</label>
-              <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                <p className="text-xs text-neutral-300">Screen Output</p>
-                <p className="text-[11px] text-neutral-400">
+              <label className="text-xs font-semibold text-foreground">Display & Positioning</label>
+              <div className="p-3 rounded-xl bg-card border border-border space-y-2">
+                <p className="text-xs text-foreground">Screen Output</p>
+                <p className="text-[11px] text-muted-foreground">
                   DynamicWin is attached to your Primary Monitor with automatic DPI scaling and centered layout.
                 </p>
               </div>
@@ -228,11 +228,11 @@ export const SettingsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs text-neutral-500">
+        <div className="flex items-center justify-between pt-3 border-t border-border text-xs text-muted-foreground">
           <span>DynamicWin v2.0 (Tauri + React)</span>
           <button
             onClick={() => setIsSettingsOpen(false)}
-            className="px-4 py-1.5 rounded-xl font-semibold bg-island-primary text-island-secondary hover:brightness-110 active:scale-95 transition-all shadow-md"
+            className="px-4 py-1.5 rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-md"
           >
             Done
           </button>

@@ -33,12 +33,10 @@ pub fn run() {
     // Optimize WebView2 resource usage on Windows (disable telemetry, translate, reduce background timer throttling overhead)
     #[cfg(target_os = "windows")]
     {
-        if std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_err() {
-            std::env::set_var(
-                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                "--disable-features=Translate,OptimizationHints,MediaRouter --disable-backgrounding-occluded-windows --enable-low-res-tiling",
-            );
-        }
+        std::env::set_var(
+            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+            "--disable-features=msWebOOUI,msPdfOOUI,TranslateUI --disable-background-timer-throttling --disable-renderer-backgrounding",
+        );
     }
 
     tauri::Builder::default()
@@ -53,6 +51,9 @@ pub fn run() {
         .setup(|app| {
             app.manage(LocalSendState::new(&app.handle()));
             start_clipboard_listener(app.handle().clone());
+
+            let settings = load_settings();
+            let _ = commands::settings::bind_spotify_hotkey(&app.handle(), &settings.spotify_search_hotkey);
 
             // Position and configure overlay window
             if let Some(window) = app.get_webview_window("main") {
@@ -187,12 +188,15 @@ pub fn run() {
             media_prev,
             media_seek,
             get_media_info,
+            open_spotify,
             get_spotify_queue,
             get_spotify_shuffle_state,
             set_spotify_shuffle,
             spotify_login,
             spotify_logout,
             check_spotify_auth,
+            get_spotify_access_token,
+            spotify_play,
             open_settings_window,
             get_weather_data,
             get_tray_files,
@@ -211,6 +215,7 @@ pub fn run() {
             launch_shortcut,
             load_settings,
             save_settings,
+            register_spotify_search_hotkey,
             load_custom_theme,
             save_custom_theme,
             get_system_volume,
