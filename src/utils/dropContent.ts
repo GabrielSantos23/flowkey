@@ -316,6 +316,18 @@ export const sendExtractedContentToDevice = async (
   return false;
 };
 
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = reader.result as string;
+      resolve(res);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 export const saveExtractedContentToTray = async (
   content: ExtractedDropContent
 ): Promise<TrayInfo | null> => {
@@ -327,11 +339,10 @@ export const saveExtractedContentToTray = async (
     if (content.files && content.files.length > 0) {
       let result: TrayInfo | null = null;
       for (const file of content.files) {
-        const buffer = await file.arrayBuffer();
-        const bytes = Array.from(new Uint8Array(buffer));
-        result = await invoke<TrayInfo>("save_bytes_to_tray", {
+        const base64Data = await blobToBase64(file);
+        result = await invoke<TrayInfo>("save_base64_to_tray", {
           fileName: file.name || `photo_${Date.now()}.png`,
-          bytes,
+          base64Data,
         });
       }
       return result;
@@ -339,33 +350,51 @@ export const saveExtractedContentToTray = async (
 
     if (content.imageUrl) {
       if (content.imageUrl.startsWith("data:")) {
-        const res = await fetch(content.imageUrl);
-        const buffer = await res.arrayBuffer();
-        const bytes = Array.from(new Uint8Array(buffer));
-        return await invoke<TrayInfo>("save_bytes_to_tray", {
+        return await invoke<TrayInfo>("save_base64_to_tray", {
           fileName: `photo_${Date.now()}.png`,
-          bytes,
+          base64Data: content.imageUrl,
         });
       } else {
-        const tempPath = await invoke<string>("download_url_to_temp", {
-          url: content.imageUrl,
-        });
-        if (tempPath) {
-          return await invoke<TrayInfo>("add_tray_files", { paths: [tempPath] });
+        try {
+          const tempPath = await invoke<string>("download_url_to_temp", {
+            url: content.imageUrl,
+          });
+          if (tempPath) {
+            return await invoke<TrayInfo>("add_tray_files", { paths: [tempPath] });
+          }
+        } catch (downloadErr) {
+          console.warn("[saveExtractedContentToTray] Backend download fallback to browser fetch:", downloadErr);
+          try {
+            const res = await fetch(content.imageUrl, { mode: "cors" });
+            const blob = await res.blob();
+            const base64Data = await blobToBase64(blob);
+            return await invoke<TrayInfo>("save_base64_to_tray", {
+              fileName: `web_photo_${Date.now()}.png`,
+              base64Data,
+            });
+          } catch (fetchErr) {
+            console.error("[saveExtractedContentToTray] Browser fetch failed:", fetchErr);
+          }
         }
       }
     }
 
     if (content.text) {
-      if (content.text.startsWith("http://") || content.text.startsWith("https://")) {
-        try {
-          const tempPath = await invoke<string>("download_url_to_temp", {
-            url: content.text,
-          });
-          if (tempPath) {
-            return await invoke<TrayInfo>("add_tray_files", { paths: [tempPath] });
-          }
-        } catch {}
+      if (
+        content.text.startsWith("http://") ||
+        content.text.startsWith("https://") ||
+        content.text.startsWith("data:image/")
+      ) {
+        if (isWebImageUrl(content.text) || content.text.startsWith("data:image/")) {
+          try {
+            const tempPath = await invoke<string>("download_url_to_temp", {
+              url: content.text,
+            });
+            if (tempPath) {
+              return await invoke<TrayInfo>("add_tray_files", { paths: [tempPath] });
+            }
+          } catch {}
+        }
       }
 
       const encoder = new TextEncoder();

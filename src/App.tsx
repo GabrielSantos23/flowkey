@@ -3,11 +3,11 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { PomodoroProvider } from "./context/PomodoroContext";
 import { LocalSendProvider } from "./context/LocalSendContext";
-import { DynamicIsland } from "./components/DynamicIsland";
 import { SettingsWindow } from "./components/settings/SettingsWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { moveWindow, Position } from "@tauri-apps/plugin-positioner";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { DynamicIsland } from "./components/DynamicIsland/DynamicIsland";
 
 export const App: React.FC = () => {
   const [isSettingsWindow, setIsSettingsWindow] = useState(false);

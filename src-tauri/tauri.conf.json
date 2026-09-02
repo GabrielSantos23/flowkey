@@ -27,7 +27,8 @@
         "shadow": false,
         "skipTaskbar": true,
         "visibleOnAllWorkspaces": true,
-        "center": false
+        "center": false,
+        "dragDropEnabled": false
       },
       {
         "label": "settings",
@@ -47,10 +48,6 @@
     ],
     "security": {
       "csp": null
-    },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "tooltip": "DynamicWin Overlay"
     }
   },
   "bundle": {

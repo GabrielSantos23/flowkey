@@ -14,15 +14,16 @@ import {
   File,
   Check,
   Trash2,
+  Copy,
 } from "lucide-react";
 import { extractDropContent, saveExtractedContentToTray } from "../../utils/dropContent";
-import { startDrag } from "@crabnebula/tauri-plugin-drag";
 
 export const FileTray: React.FC = () => {
   const [files, setFiles] = useState<TrayItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPointerDownRef = useRef(false);
@@ -43,8 +44,41 @@ export const FileTray: React.FC = () => {
     fetchFiles();
   }, []);
 
-  // Selection toggle & copy to clipboard for quick paste
-  const toggleSelect = async (item: TrayItem, e?: React.MouseEvent) => {
+  // Copy one or multiple files to system clipboard
+  const handleCopyItems = async (itemsToCopy: TrayItem[]) => {
+    if (itemsToCopy.length === 0) return;
+
+    try {
+      const paths = itemsToCopy.map((f) => f.path);
+      await invoke("copy_tray_files_to_clipboard", { pathsOrNames: paths });
+
+      if (itemsToCopy.length === 1) {
+        setCopiedId(itemsToCopy[0].id);
+        setTimeout(() => setCopiedId(null), 1500);
+      } else {
+        const idSet = new Set(itemsToCopy.map((f) => f.id));
+        setCopiedIds(idSet);
+        setTimeout(() => setCopiedIds(new Set()), 1500);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("dynamicwin-tray-action", {
+          detail: {
+            text:
+              itemsToCopy.length > 1
+                ? `Copied ${itemsToCopy.length} Files`
+                : "Copied to Clipboard",
+            type: "out",
+          },
+        })
+      );
+    } catch (err) {
+      console.error("[FileTray] copy error:", err);
+    }
+  };
+
+  // 1-Click: Select or deselect item
+  const toggleSelect = (item: TrayItem, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (hasMovedRef.current) return;
 
@@ -57,19 +91,12 @@ export const FileTray: React.FC = () => {
       }
       return next;
     });
+  };
 
-    // Copy to system clipboard on selection so user can immediately Ctrl+V anywhere
-    try {
-      await invoke("copy_tray_file_to_clipboard", { pathOrName: item.path });
-      setCopiedId(item.id);
-      setTimeout(() => setCopiedId(null), 1500);
-
-      window.dispatchEvent(
-        new CustomEvent("dynamicwin-tray-action", {
-          detail: { text: "Copied to Clipboard", type: "out" },
-        })
-      );
-    } catch {}
+  // Double Click: Copy single item immediately
+  const handleDoubleClick = async (item: TrayItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await handleCopyItems([item]);
   };
 
   // Select all or deselect all (Tick Button)
@@ -118,11 +145,7 @@ export const FileTray: React.FC = () => {
     } catch {}
   };
 
-  // Open file with default application on double-click
-  const handleDoubleClick = (item: TrayItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    invoke("open_tray_file", { pathOrName: item.path }).catch(() => {});
-  };
+
 
   // Drag-and-drop into the tray with animated progress bar
   const handleDrop = async (e: React.DragEvent) => {
@@ -151,39 +174,12 @@ export const FileTray: React.FC = () => {
     }
   };
 
-  // Setup OS-level file drag out using native CrabNebula drag plugin + fallback
-  const handleDragStart = async (item: TrayItem, e: React.DragEvent) => {
-    // 1. Set KDE Klipper / system clipboard so target apps accept Ctrl+V or drop
-    invoke("copy_tray_file_to_clipboard", { pathOrName: item.path }).catch(() => {});
-
-    // 2. Set standard Linux X11/Wayland drag protocols
-    const rawPath = item.path;
-    const fileUrl = rawPath.startsWith("file://")
-      ? rawPath
-      : `file://${rawPath.startsWith("/") ? "" : "/"}${rawPath}`;
-
-    e.dataTransfer.setData("text/uri-list", `${fileUrl}\r\n`);
-    e.dataTransfer.setData("text/plain", fileUrl);
-    e.dataTransfer.setData("application/x-kde-cutselection", "0");
-    e.dataTransfer.setData(
-      "DownloadURL",
-      `application/octet-stream:${item.name}:${fileUrl}`
-    );
-    e.dataTransfer.effectAllowed = "copyMove";
-
-    // 3. Start native OS drag session via CrabNebula plugin
-    try {
-      await startDrag({
-        item: [item.path],
-        icon: item.thumbnail || "",
-      });
-    } catch (err) {
-      console.warn("Native startDrag:", err);
-    }
-  };
-
   // Pointer drag for horizontal scrolling
   const handlePointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-tray-item]") || target.closest("button")) {
+      return;
+    }
     if (!scrollRef.current) return;
     isPointerDownRef.current = true;
     hasMovedRef.current = false;
@@ -347,12 +343,11 @@ export const FileTray: React.FC = () => {
             return (
               <div
                 key={item.id}
-                draggable={true}
-                onDragStart={(e) => handleDragStart(item, e)}
+                data-tray-item="true"
                 onClick={(e) => toggleSelect(item, e)}
                 onDoubleClick={(e) => handleDoubleClick(item, e)}
-                className="group relative flex flex-col items-center flex-shrink-0 cursor-pointer"
-                title={`${item.name} (Click to copy/select • Drag out • Double-click to open)`}
+                className="group relative flex flex-col items-center flex-shrink-0 cursor-pointer select-none"
+                title={`${item.name} (Click to select • Double-click to copy)`}
               >
                 {/* Squircle Card */}
                 <div
@@ -365,7 +360,7 @@ export const FileTray: React.FC = () => {
                   {renderItemVisual(item)}
 
                   {/* Copied feedback badge */}
-                  {copiedId === item.id && (
+                  {(copiedId === item.id || copiedIds.has(item.id)) && (
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-20 text-emerald-400 animate-fade-in">
                       <Check className="w-5 h-5 stroke-[2.5]" />
                     </div>
@@ -391,9 +386,24 @@ export const FileTray: React.FC = () => {
         )}
       </div>
 
-      {/* 5. BOTTOM-RIGHT FLOATING ACTION BUTTONS (Tick & Delete Basket) */}
+      {/* 5. BOTTOM-RIGHT FLOATING ACTION BUTTONS */}
       {files.length > 0 && (
         <div className="absolute right-2 bottom-2 flex items-center gap-1.5 z-30 pointer-events-auto">
+          {/* Copy Selected Button - Only appears when 2 or more items are selected */}
+          {selectedIds.size >= 2 && (
+            <button
+              onClick={() => {
+                const items = files.filter((f) => selectedIds.has(f.id));
+                handleCopyItems(items);
+              }}
+              className="h-6 px-2.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-[10px] flex items-center gap-1.5 transition-all shadow-lg active:scale-95 animate-fade-in"
+              title={`Copy ${selectedIds.size} selected files`}
+            >
+              <Copy className="w-3 h-3 stroke-[2.5]" />
+              <span>Copy ({selectedIds.size})</span>
+            </button>
+          )}
+
           {/* Select All Tick Button */}
           <button
             onClick={handleSelectAllToggle}

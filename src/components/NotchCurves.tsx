@@ -7,7 +7,6 @@ interface NotchCurvesProps {
 export const NotchCurves: React.FC<NotchCurvesProps> = ({ fillColor = "var(--color-island-bg)" }) => {
   return (
     <>
-      {/* Left Notch Ear Curve (Smooth Concave Fillet) */}
       <svg
         className="absolute top-0 -left-[16px] w-[16px] h-[16px] pointer-events-none z-10"
         viewBox="0 0 16 16"
@@ -20,7 +19,6 @@ export const NotchCurves: React.FC<NotchCurvesProps> = ({ fillColor = "var(--col
         />
       </svg>
 
-      {/* Right Notch Ear Curve (Smooth Concave Fillet) */}
       <svg
         className="absolute top-0 -right-[16px] w-[16px] h-[16px] pointer-events-none z-10"
         viewBox="0 0 16 16"

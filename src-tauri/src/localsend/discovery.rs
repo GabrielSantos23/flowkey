@@ -32,7 +32,7 @@ impl DiscoveryManager {
         let cert_pem = self.cert_pem.clone();
         let key_pem = self.key_pem.clone();
 
-        // 1. Periodic background announcement broadcaster (heartbeat every 12s)
+        // 1. Periodic background announcement broadcaster (heartbeat every 30s)
         let my_dev_bcast = my_device.clone();
         tauri::async_runtime::spawn(async move {
             loop {
@@ -51,30 +51,7 @@ impl DiscoveryManager {
                 if let Ok(json) = serde_json::to_string(&announcement) {
                     send_announcements(&json).await;
                 }
-                tokio::time::sleep(Duration::from_secs(12)).await;
-            }
-        });
-
-        // 2. Periodic background HTTP/HTTPS subnet scanner (handles Wi-Fi routers blocking UDP multicast)
-        let my_dev_subnet = my_device.clone();
-        let devices_sub = devices_store.clone();
-        let app_sub = app.clone();
-        let cert_sub = cert_pem.clone();
-        let key_sub = key_pem.clone();
-        tauri::async_runtime::spawn(async move {
-            // Initial scan after 1s
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            loop {
-                let dev = my_dev_subnet.read().await.clone();
-                scan_subnet_fallback(
-                    devices_sub.clone(),
-                    app_sub.clone(),
-                    dev,
-                    cert_sub.clone(),
-                    key_sub.clone(),
-                )
-                .await;
-                tokio::time::sleep(Duration::from_secs(20)).await;
+                tokio::time::sleep(Duration::from_secs(30)).await;
             }
         });
 

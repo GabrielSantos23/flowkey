@@ -101,10 +101,6 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96, y: -4 }}
       transition={{ type: "spring", stiffness: 450, damping: 30 }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
       className="flex items-center justify-center gap-2.5 px-3 py-2 select-none"
     >
       {/* 1. Tray Action Tile */}
@@ -127,10 +123,6 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
             endDwell();
           }
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
         }}
         className={`relative flex flex-col items-center justify-center gap-1.5 w-24 h-16 rounded-2xl cursor-pointer transition-all border overflow-hidden ${
           selectedCard === "tray"
@@ -191,10 +183,6 @@ export const DropFileOverlay: React.FC<DropFileOverlayProps> = ({
           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
             endDwell();
           }
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
         }}
         className={`relative flex flex-col items-center justify-center gap-1.5 w-24 h-16 rounded-2xl cursor-pointer transition-all border overflow-hidden ${
           selectedCard === "localsend"

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { MediaStats, SpotifyQueueTrack } from "../../../types";
-import { Play, Pause, Music, Shuffle, List, X, GripVertical, Settings, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Play, Pause, Music, Shuffle, List, X, Settings, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SizeTransitionBlur } from "../../common/SizeTransitionBlur";
+import { SpotifyQueueSkeleton } from "@/components/skeletons";
+import { SizeTransitionBlur } from "@/components/common/SizeTransitionBlur";
 
 interface SpotifyExpandedPlayerProps {
   media: MediaStats;
@@ -20,19 +21,36 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
   const [isShuffle, setIsShuffle] = useState(false);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [queueTracks, setQueueTracks] = useState<SpotifyQueueTrack[]>([]);
+  const [isLoadingQueue, setIsLoadingQueue] = useState(false);
   const [isSpotifyAuthed, setIsSpotifyAuthed] = useState(false);
 
-  // Check Spotify API authorization on mount
-  const checkAuth = async () => {
+  // Check Spotify API authorization and shuffle state on mount
+  const checkAuthAndShuffle = async () => {
     try {
       const authed = await invoke<boolean>("check_spotify_auth");
       setIsSpotifyAuthed(authed);
+      if (authed) {
+        const shuffle = await invoke<boolean>("get_spotify_shuffle_state");
+        setIsShuffle(shuffle);
+      }
     } catch {}
   };
 
   useEffect(() => {
-    checkAuth();
+    checkAuthAndShuffle();
   }, []);
+
+  // Periodically check shuffle state
+  useEffect(() => {
+    if (!isSpotifyAuthed) return;
+    const interval = setInterval(async () => {
+      try {
+        const shuffle = await invoke<boolean>("get_spotify_shuffle_state");
+        setIsShuffle(shuffle);
+      } catch {}
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isSpotifyAuthed]);
 
   // Sync position
   useEffect(() => {
@@ -50,14 +68,17 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
     return () => clearInterval(interval);
   }, [media.is_playing, media.duration_secs]);
 
-  // Fetch queue from real Spotify API
+  // Fetch queue from Spotify API
   const fetchQueue = async () => {
+    setIsLoadingQueue(true);
     try {
       const q = await invoke<SpotifyQueueTrack[]>("get_spotify_queue");
       if (q) {
         setQueueTracks(q);
       }
-    } catch {}
+    } catch {} finally {
+      setIsLoadingQueue(false);
+    }
   };
 
   const toggleQueue = () => {
@@ -65,7 +86,7 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
     setIsQueueOpen(nextState);
     if (onQueueToggle) onQueueToggle(nextState);
     if (nextState) {
-      checkAuth();
+      checkAuthAndShuffle();
       fetchQueue();
     }
   };
@@ -73,7 +94,6 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
   const handleShuffleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isSpotifyAuthed) {
-      // Open settings if not connected
       try {
         await invoke("open_settings_window");
       } catch {}
@@ -151,53 +171,55 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
   const remainingSecs = Math.max(0, media.duration_secs - localPos);
 
   return (
-    <div className="w-full flex flex-col justify-between p-4 bg-transparent text-white select-none">
-      {/* Top Section: Album Cover + Title / Artist + Equalizer */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          {/* Album Cover Art */}
-          <div className="relative w-11 h-11 rounded-lg bg-neutral-900 border border-white/10 overflow-hidden flex-shrink-0 shadow-md flex items-center justify-center">
-            {media.art_url ? (
-              <img
-                src={media.art_url}
-                alt={media.title}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = "none";
-                }}
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-950 flex items-center justify-center text-white/40">
-                <Music className="w-5 h-5" />
-              </div>
-            )}
+    <SizeTransitionBlur triggerKey={isQueueOpen} maxBlur={8} className="w-full">
+      <div className="w-full flex items-start p-3.5 bg-transparent text-white select-none">
+        {/* LEFT COLUMN: Main Player */}
+      <div className="w-[305px] h-[142px] flex-shrink-0 flex flex-col justify-between">
+        {/* Top: Cover, Info & Waveform */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Album Art */}
+            <div className="relative w-12 h-12 rounded-xl bg-neutral-900 border border-white/10 overflow-hidden flex-shrink-0 shadow-lg flex items-center justify-center">
+              {media.art_url ? (
+                <img
+                  src={media.art_url}
+                  alt={media.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-950 flex items-center justify-center text-white/40">
+                  <Music className="w-5 h-5" />
+                </div>
+              )}
+            </div>
+
+            {/* Title & Artist */}
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[13px] font-bold text-white tracking-tight truncate leading-tight">
+                {media.title || "No Media Playing"}
+              </h3>
+              <p className="text-[11px] text-neutral-400 font-medium truncate mt-0.5">
+                {media.artist || "Spotify"}
+              </p>
+            </div>
           </div>
 
-          {/* Title & Artist */}
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[13px] font-semibold text-white tracking-tight truncate leading-tight">
-              {media.title || "No Media Playing"}
-            </h3>
-            <p className="text-[11px] text-neutral-400 font-normal truncate mt-0.5">
-              {media.artist || "Spotify"}
-            </p>
-          </div>
-        </div>
-
-        {/* Equalizer Waveform & Settings Button */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="flex items-end gap-0.5 h-4 px-1">
-            {[0.4, 0.9, 0.6, 0.85, 0.4].map((h, i) => (
+          {/* Equalizer Waveform */}
+          <div className="flex items-end gap-[2.5px] h-3.5 px-1 flex-shrink-0">
+            {[0.35, 0.9, 0.55, 0.85, 0.4].map((h, i) => (
               <motion.div
                 key={i}
-                className="w-0.5 rounded-full bg-orange-400"
+                className="w-[2.5px] rounded-full bg-white/90"
                 animate={
                   media.is_playing
                     ? {
                         height: [
-                          `${Math.max(2, 14 * h * 0.3)}px`,
-                          `${Math.max(3, 14 * h)}px`,
-                          `${Math.max(2, 14 * h * 0.5)}px`,
+                          `${Math.max(2, 13 * h * 0.3)}px`,
+                          `${Math.max(3, 13 * h)}px`,
+                          `${Math.max(2, 13 * h * 0.5)}px`,
                         ],
                       }
                     : { height: "2.5px" }
@@ -215,192 +237,208 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
               />
             ))}
           </div>
-
-          <button
-            onClick={openSettings}
-            className="p-1 rounded-md text-neutral-500 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
-            title="Settings"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </button>
         </div>
-      </div>
 
-      {/* Middle: Progress Scrubber Bar */}
-      <div className="flex items-center justify-between gap-2.5 my-2.5 text-[10px] font-mono text-neutral-400">
-        <span className="w-7 text-left">{formatTime(localPos)}</span>
-        <div
-          onClick={handleSeek}
-          className="group/bar relative flex-1 h-1 bg-white/20 rounded-full cursor-pointer overflow-hidden transition-all hover:h-1.5"
-        >
+        {/* Middle: Progress Bar */}
+        <div className="flex items-center justify-between gap-2.5 my-2 text-[10px] font-mono text-neutral-400">
+          <span className="w-7 text-left">{formatTime(localPos)}</span>
           <div
-            className="h-full bg-white/90 rounded-full transition-all"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <span className="w-7 text-right">-{formatTime(remainingSecs)}</span>
-      </div>
-
-      {/* Controls Row: Left (Queue), Center (Prev, Play, Next), Right (Shuffle) */}
-      <div className="flex items-center justify-between pt-0.5 px-1">
-        {/* Left Button: List / Queue Button */}
-        <button
-          onClick={toggleQueue}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-            isQueueOpen
-              ? "bg-white text-black shadow-sm"
-              : isSpotifyAuthed
-              ? "bg-white/10 text-white hover:bg-white/20"
-              : "bg-white/5 text-neutral-500 hover:text-neutral-300"
-          }`}
-          title={isSpotifyAuthed ? "Playing Next Queue" : "Connect Spotify API in Settings to view queue"}
-        >
-          <List className="w-4 h-4" />
-        </button>
-
-        {/* Center Playback Controls */}
-        <div className="flex items-center gap-5">
-          <button
-            onClick={handlePrev}
-            className="p-1 text-white hover:opacity-80 active:scale-90 transition-all"
-            title="Previous"
+            onClick={handleSeek}
+            className="group/bar relative flex-1 h-1 bg-white/20 rounded-full cursor-pointer overflow-hidden transition-all hover:h-1.5"
           >
-            <ChevronsLeft  className="w-10 h-10 fill-white stroke-none" />
-          </button>
-
-          <button
-            onClick={handlePlayPause}
-            className="p-1.5 text-white hover:scale-110 active:scale-95 transition-all flex items-center justify-center"
-            title={media.is_playing ? "Pause" : "Play"}
-          >
-            {media.is_playing ? (
-              <Pause className="w-10 h-10 fill-white stroke-none" />
-            ) : (
-              <Play className="w-10 h-10 fill-white stroke-none ml-0.5" />
-            )}
-          </button>
-
-          <button
-            onClick={handleNext}
-            className="p-1 text-white hover:opacity-80 active:scale-90 transition-all"
-            title="Next"
-          >
-            <ChevronsRight  className="w-10 h-10 fill-white stroke-none" />
-          </button>
+            <div
+              className="h-full bg-white/90 rounded-full transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <span className="w-7 text-right">-{formatTime(remainingSecs)}</span>
         </div>
 
-        {/* Right Button: Shuffle Button */}
-        <button
-          onClick={handleShuffleToggle}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-            isShuffle
-              ? "bg-emerald-500 text-black shadow-sm"
-              : isSpotifyAuthed
-              ? "bg-white/10 text-white hover:bg-white/20"
-              : "bg-white/5 text-neutral-500 hover:text-neutral-300"
-          }`}
-          title={isSpotifyAuthed ? "Toggle Shuffle" : "Connect Spotify API in Settings to toggle shuffle"}
-        >
-          <Shuffle className="w-4 h-4" />
-        </button>
+        {/* Bottom Controls */}
+        <div className="flex items-center justify-between pt-0.5 px-0.5">
+          {/* Queue Button */}
+          <button
+            onClick={toggleQueue}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+              isQueueOpen
+                ? "bg-white text-black shadow-sm"
+                : isSpotifyAuthed
+                ? "bg-white/10 text-white hover:bg-white/20"
+                : "bg-white/5 text-neutral-500 hover:text-neutral-300"
+            }`}
+            title={isSpotifyAuthed ? "Playing Next" : "Connect Spotify API in Settings to view queue"}
+          >
+            <List className="w-4 h-4" />
+          </button>
+
+          {/* Center Playback Controls */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handlePrev}
+              className="p-1 text-white hover:opacity-80 active:scale-90 transition-all"
+              title="Previous"
+            >
+              <ChevronsLeft className="w-7 h-7 fill-white stroke-none" />
+            </button>
+
+            <button
+              onClick={handlePlayPause}
+              className="p-1 text-white hover:scale-110 active:scale-95 transition-all flex items-center justify-center"
+              title={media.is_playing ? "Pause" : "Play"}
+            >
+              {media.is_playing ? (
+                <Pause className="w-7 h-7 fill-white stroke-none" />
+              ) : (
+                <Play className="w-7 h-7 fill-white stroke-none ml-0.5" />
+              )}
+            </button>
+
+            <button
+              onClick={handleNext}
+              className="p-1 text-white hover:opacity-80 active:scale-90 transition-all"
+              title="Next"
+            >
+              <ChevronsRight className="w-7 h-7 fill-white stroke-none" />
+            </button>
+          </div>
+
+          {/* Shuffle Button */}
+          <button
+            onClick={handleShuffleToggle}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+              isShuffle
+                ? "bg-[#1DB954] text-black shadow-sm"
+                : isSpotifyAuthed
+                ? "bg-white/10 text-white hover:bg-white/20"
+                : "bg-white/5 text-neutral-500 hover:text-neutral-300"
+            }`}
+            title={
+              isSpotifyAuthed
+                ? isShuffle
+                  ? "Shuffle: On"
+                  : "Shuffle: Off"
+                : "Connect Spotify in Settings"
+            }
+          >
+            <Shuffle className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* "Playing Next" Queue Drawer with Motion Blur */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {isQueueOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden mt-3 pt-2 border-t border-white/10 flex flex-col gap-2"
+            initial={{ opacity: 0, width: 0 }}
+            animate={{
+              opacity: 1,
+              width: 270,
+              transition: {
+                width: { duration: 0.32, ease: [0.32, 0.72, 0, 1] },
+                opacity: { duration: 0.18, delay: 0.08 },
+              },
+            }}
+            exit={{
+              opacity: 0,
+              width: 0,
+              transition: {
+                opacity: { duration: 0.12 },
+                width: { duration: 0.28, ease: [0.32, 0.72, 0, 1], delay: 0.06 },
+              },
+            }}
+            className="overflow-hidden h-[142px] flex flex-col justify-between"
           >
-            <SizeTransitionBlur triggerKey={isQueueOpen}>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[11px] font-semibold text-neutral-400">
-                  Playing Next
-                </span>
-                {!isSpotifyAuthed && (
-                  <button
-                    onClick={openSettings}
-                    className="flex items-center gap-1 text-[10px] text-emerald-400 hover:underline"
-                  >
-                    <Settings className="w-3 h-3" />
-                    <span>Connect Spotify</span>
-                  </button>
-                )}
-              </div>
+            <div className="w-[270px] pl-4 border-l border-white/10 flex flex-col justify-between h-[142px]">
+              <SizeTransitionBlur triggerKey={isQueueOpen} maxBlur={8} className="w-full h-full">
+                <div className="flex flex-col gap-1.5">
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-0.5">
+                    <span className="text-[13px] font-bold text-white tracking-tight">
+                      Playing Next
+                    </span>
+                    {!isSpotifyAuthed && (
+                      <button
+                        onClick={openSettings}
+                        className="flex items-center gap-1 text-[10px] text-[#1DB954] hover:underline"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>Connect</span>
+                      </button>
+                    )}
+                  </div>
 
-              {/* If Not Connected -> Show Connect Prompt (NO PLACEHOLDERS) */}
-              {!isSpotifyAuthed ? (
-                <div className="p-3 rounded-xl bg-neutral-900/80 border border-white/5 text-center flex flex-col items-center gap-2">
-                  <p className="text-xs text-neutral-400">
-                    Spotify API is not connected.
-                  </p>
-                  <button
-                    onClick={openSettings}
-                    className="px-3 py-1 rounded-lg bg-[#1DB954] text-black text-xs font-bold hover:brightness-110 active:scale-95 transition-all"
-                  >
-                    Connect in Settings
-                  </button>
-                </div>
-              ) : queueTracks.length === 0 ? (
-                /* If Connected but Queue is Empty */
-                <div className="p-3 text-center text-xs text-neutral-500">
-                  No upcoming tracks in queue.
-                </div>
-              ) : (
-                /* Real Live Queue Tracks */
-                <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-0.5">
-                  {queueTracks.map((track) => (
-                    <div
-                      key={track.id || track.uri}
-                      className="group/item flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-md bg-neutral-900 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
-                          {track.album_art ? (
-                            <img
-                              src={track.album_art}
-                              alt={track.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <Music className="w-3.5 h-3.5 text-neutral-500" />
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-white truncate max-w-[170px]">
-                            {track.title}
-                          </div>
-                          <div className="text-[10px] text-neutral-400 truncate max-w-[170px]">
-                            {track.artist}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <GripVertical className="w-3.5 h-3.5 text-neutral-600 group-hover/item:text-neutral-400" />
-                        <button
-                          onClick={(e) => removeQueueItem(track.id, e)}
-                          className="p-1 rounded-full text-neutral-500 hover:text-white hover:bg-white/10 transition-all"
-                          title="Remove"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                  {/* Queue Items or Skeletons */}
+                  {!isSpotifyAuthed ? (
+                    <div className="p-2.5 rounded-xl bg-neutral-900/80 border border-white/5 text-center flex flex-col items-center gap-1.5 my-auto">
+                      <p className="text-[11px] text-neutral-400">
+                        Spotify API not connected.
+                      </p>
+                      <button
+                        onClick={openSettings}
+                        className="px-2.5 py-0.5 rounded-lg bg-[#1DB954] text-black text-[11px] font-bold hover:brightness-110 active:scale-95 transition-all"
+                      >
+                        Connect in Settings
+                      </button>
                     </div>
-                  ))}
+                  ) : isLoadingQueue ? (
+                    <SpotifyQueueSkeleton count={3} />
+                  ) : queueTracks.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-neutral-500">
+                      No upcoming tracks in queue.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1.5 overflow-hidden">
+                      {queueTracks.slice(0, 3).map((track) => (
+                        <div
+                          key={track.id || track.uri}
+                          className="group/item flex items-center justify-between p-1 rounded-lg hover:bg-white/5 transition-all"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {/* Track Album Art */}
+                            <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+                              {track.album_art ? (
+                                <img
+                                  src={track.album_art}
+                                  alt={track.title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                   (e.target as HTMLElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <Music className="w-3.5 h-3.5 text-neutral-500" />
+                              )}
+                            </div>
+
+                            {/* Track Info */}
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[12px] font-semibold text-white truncate max-w-[140px] leading-tight">
+                                {track.title}
+                              </div>
+                              <div className="text-[10px] text-neutral-400 truncate max-w-[140px] mt-0.5">
+                                {track.artist}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Remove Button */}
+                          <button
+                            onClick={(e) => removeQueueItem(track.id, e)}
+                            className="p-1 rounded-full text-neutral-500 hover:text-white hover:bg-white/10 opacity-0 group-hover/item:opacity-100 transition-all flex-shrink-0"
+                            title="Remove from queue"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </SizeTransitionBlur>
+              </SizeTransitionBlur>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </SizeTransitionBlur>
   );
 };

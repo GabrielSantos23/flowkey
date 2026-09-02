@@ -14,8 +14,8 @@ export const SizeTransitionBlur: React.FC<SizeTransitionBlurProps> = ({
   children,
   triggerKey,
   className = "w-full",
-  maxBlur = 4,
-  duration = 0.18,
+  maxBlur = 8,
+  duration = 0.22,
   layout = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,13 +32,12 @@ export const SizeTransitionBlur: React.FC<SizeTransitionBlurProps> = ({
         const diffW = Math.abs(width - lastSizeRef.current.w);
         const diffH = Math.abs(height - lastSizeRef.current.h);
 
-        // Only trigger blur on significant structural size jumps (> 15px), not tiny micro-animations
-        if ((diffW > 15 || diffH > 15) && lastSizeRef.current.w > 0) {
+        if ((diffW > 12 || diffH > 12) && lastSizeRef.current.w > 0) {
           setIsResizing(true);
           if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
           resizeTimeoutRef.current = setTimeout(() => {
             setIsResizing(false);
-          }, Math.round(duration * 1000) + 50);
+          }, Math.round(duration * 1000) + 40);
         }
 
         lastSizeRef.current = { w: width, h: height };
@@ -58,7 +57,7 @@ export const SizeTransitionBlur: React.FC<SizeTransitionBlurProps> = ({
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
       resizeTimeoutRef.current = setTimeout(() => {
         setIsResizing(false);
-      }, Math.round(duration * 1000) + 50);
+      }, Math.round(duration * 1000) + 40);
     }
   }, [triggerKey, duration]);
 
@@ -67,17 +66,19 @@ export const SizeTransitionBlur: React.FC<SizeTransitionBlurProps> = ({
       <motion.div
         layout={layout}
         transition={{
-          type: "spring",
-          stiffness: 450,
-          damping: 32,
-          mass: 0.65,
+          duration: duration,
+          ease: [0.25, 1, 0.5, 1],
         }}
         animate={{
-          filter: isResizing ? `blur(${maxBlur}px)` : "blur(0px)",
-          opacity: isResizing ? 0.9 : 1,
+          filter: isResizing ? `blur(${Math.min(maxBlur, 4)}px)` : "blur(0px)",
+          opacity: isResizing ? 0.92 : 1,
           scale: isResizing ? 0.99 : 1,
         }}
-        className="w-full"
+        style={{
+          transform: "translateZ(0)",
+          backfaceVisibility: "hidden",
+        }}
+        className="w-full h-full flex items-center justify-center transform-gpu will-change-[transform,opacity]"
       >
         {children}
       </motion.div>

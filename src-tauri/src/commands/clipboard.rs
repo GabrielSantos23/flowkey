@@ -345,7 +345,7 @@ pub fn start_clipboard_listener(app: AppHandle) {
         }
 
         loop {
-            std::thread::sleep(Duration::from_millis(250));
+            std::thread::sleep(Duration::from_millis(500));
 
             if clipboard_inst.is_none() {
                 clipboard_inst = arboard::Clipboard::new().ok();

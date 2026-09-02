@@ -18,12 +18,13 @@ import {
   HardDrive,
   Minimize2,
   ClipboardPaste,
+  Copy,
 } from "lucide-react";
 import {
   extractDropContent,
   saveExtractedContentToTray,
 } from "../../../utils/dropContent";
-import { startDrag } from "@crabnebula/tauri-plugin-drag";
+import { FileTrayShelfSkeleton } from "@/components/skeletons";
 
 interface TrayExpandedWidgetProps {
   onMinimize?: () => void;
@@ -39,9 +40,11 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
   const [maxCapacity, setMaxCapacity] = useState<number>(1024 * 1024 * 1024);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPointerDownRef = useRef(false);
@@ -60,6 +63,8 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
       }
     } catch (e) {
       console.error("[TrayExpandedWidget] fetchFiles error:", e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -105,8 +110,42 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  // Toggle selection of individual item & copy to system clipboard
-  const toggleSelect = async (item: TrayItem, e?: React.MouseEvent) => {
+  // Copy one or multiple files to system clipboard
+  const handleCopyItems = async (itemsToCopy: TrayItem[]) => {
+    if (itemsToCopy.length === 0) return;
+
+    try {
+      const paths = itemsToCopy.map((f) => f.path);
+      await invoke("copy_tray_files_to_clipboard", { pathsOrNames: paths });
+
+      if (itemsToCopy.length === 1) {
+        setCopiedId(itemsToCopy[0].id);
+        setTimeout(() => setCopiedId(null), 1500);
+      } else {
+        const idSet = new Set(itemsToCopy.map((f) => f.id));
+        setCopiedIds(idSet);
+        setTimeout(() => setCopiedIds(new Set()), 1500);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("dynamicwin-tray-action", {
+          detail: {
+            text:
+              itemsToCopy.length > 1
+                ? `Copied ${itemsToCopy.length} Files`
+                : "Copied to Clipboard",
+            type: "out",
+            minimize: false,
+          },
+        })
+      );
+    } catch (err) {
+      console.error("[TrayExpandedWidget] copy error:", err);
+    }
+  };
+
+  // Single click: Select or deselect item
+  const toggleSelect = (item: TrayItem, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (hasMovedRef.current) return;
 
@@ -119,31 +158,42 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
       }
       return next;
     });
+  };
 
-    try {
-      await invoke("copy_tray_file_to_clipboard", { pathOrName: item.path });
-      setCopiedId(item.id);
-      setTimeout(() => setCopiedId(null), 1500);
-
-      window.dispatchEvent(
-        new CustomEvent("dynamicwin-tray-action", {
-          detail: { text: "Copied to Clipboard", type: "out", minimize: false },
-        })
-      );
-    } catch (err) {
-      console.error("[TrayExpandedWidget] copy error:", err);
-    }
+  // Double click: Copy individual file immediately
+  const handleDoubleClick = async (item: TrayItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await handleCopyItems([item]);
   };
 
   // Select all or deselect all items
-  const handleSelectAllToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleSelectAllToggle = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (selectedIds.size === files.length && files.length > 0) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(files.map((f) => f.id)));
     }
   };
+
+  // Keyboard shortcut support (Ctrl+A to select all, Ctrl+C to copy selected)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        handleSelectAllToggle();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          const items = files.filter((f) => selectedIds.has(f.id));
+          handleCopyItems(items);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [files, selectedIds]);
 
   // Delete selected items
   const handleDeleteSelected = async (e: React.MouseEvent) => {
@@ -183,11 +233,7 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
     } catch {}
   };
 
-  // Open file with default application on double-click
-  const handleDoubleClick = (item: TrayItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    invoke("open_tray_file", { pathOrName: item.path }).catch(() => {});
-  };
+
 
   // Drop files or web images into the tray
   const handleDrop = async (e: React.DragEvent) => {
@@ -233,36 +279,12 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
     }
   };
 
-  // Drag item OUT of the tray into OS / dolphin / browser / discord
-  const handleDragStart = async (item: TrayItem, e: React.DragEvent) => {
-    invoke("copy_tray_file_to_clipboard", { pathOrName: item.path }).catch(() => {});
-
-    const rawPath = item.path;
-    const fileUrl = rawPath.startsWith("file://")
-      ? rawPath
-      : `file://${rawPath.startsWith("/") ? "" : "/"}${rawPath}`;
-
-    e.dataTransfer.setData("text/uri-list", `${fileUrl}\r\n`);
-    e.dataTransfer.setData("text/plain", fileUrl);
-    e.dataTransfer.setData("application/x-kde-cutselection", "0");
-    e.dataTransfer.setData(
-      "DownloadURL",
-      `application/octet-stream:${item.name}:${fileUrl}`
-    );
-    e.dataTransfer.effectAllowed = "copyMove";
-
-    try {
-      await startDrag({
-        item: [item.path],
-        icon: item.thumbnail || "",
-      });
-    } catch (err) {
-      console.warn("[TrayExpandedWidget] Native startDrag:", err);
-    }
-  };
-
   // Pointer drag for horizontal scrolling
   const handlePointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-tray-item]") || target.closest("button")) {
+      return;
+    }
     if (!scrollRef.current) return;
     isPointerDownRef.current = true;
     hasMovedRef.current = false;
@@ -496,7 +518,9 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
           className="w-full h-full overflow-x-auto flex items-center gap-3 px-6 py-2 no-scrollbar cursor-grab active:cursor-grabbing touch-none z-10"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {files.length === 0 ? (
+          {isLoading ? (
+            <FileTrayShelfSkeleton count={5} />
+          ) : files.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center gap-2 text-neutral-500 text-xs">
               <UploadCloud className="w-4 h-4 text-neutral-400 animate-bounce" />
               <span>Drag & drop files or web images here</span>
@@ -508,12 +532,11 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
               return (
                 <div
                   key={item.id}
-                  draggable={true}
-                  onDragStart={(e) => handleDragStart(item, e)}
+                  data-tray-item="true"
                   onClick={(e) => toggleSelect(item, e)}
                   onDoubleClick={(e) => handleDoubleClick(item, e)}
-                  className="group relative flex flex-col items-center flex-shrink-0 cursor-pointer"
-                  title={`${item.name} (${formatBytes(item.size_bytes)} • Click to copy • Drag out • Double-click to open)`}
+                  className="group relative flex flex-col items-center flex-shrink-0 cursor-pointer select-none"
+                  title={`${item.name} (${formatBytes(item.size_bytes)} • Click to select • Double-click to copy)`}
                 >
                   {/* Squircle Card */}
                   <div
@@ -526,7 +549,7 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
                     {renderItemVisual(item)}
 
                     {/* Copied feedback overlay */}
-                    {copiedId === item.id && (
+                    {(copiedId === item.id || copiedIds.has(item.id)) && (
                       <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-20 text-emerald-400">
                         <Check className="w-5 h-5 stroke-[2.5]" />
                       </div>
@@ -552,9 +575,24 @@ export const TrayExpandedWidget: React.FC<TrayExpandedWidgetProps> = ({
           )}
         </div>
 
-        {/* Floating Bottom-Right Action Buttons (Select All & Delete) */}
+        {/* Floating Bottom-Right Action Buttons */}
         {files.length > 0 && (
           <div className="absolute right-2 bottom-2 flex items-center gap-1.5 z-30 pointer-events-auto">
+            {/* Copy Selected Button - Only appears when 2 or more items are selected */}
+            {selectedIds.size >= 2 && (
+              <button
+                onClick={() => {
+                  const items = files.filter((f) => selectedIds.has(f.id));
+                  handleCopyItems(items);
+                }}
+                className="h-6 px-2.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-[10px] flex items-center gap-1.5 transition-all shadow-lg active:scale-95 animate-fade-in"
+                title={`Copy ${selectedIds.size} selected files (Ctrl+C)`}
+              >
+                <Copy className="w-3 h-3 stroke-[2.5]" />
+                <span>Copy ({selectedIds.size})</span>
+              </button>
+            )}
+
             {/* Select All Tick Button */}
             <button
               onClick={handleSelectAllToggle}

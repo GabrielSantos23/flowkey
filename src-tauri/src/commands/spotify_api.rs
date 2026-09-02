@@ -303,6 +303,50 @@ pub async fn get_spotify_queue(state: tauri::State<'_, SpotifyState>) -> Result<
 }
 
 #[tauri::command]
+pub async fn get_spotify_shuffle_state(
+    state: tauri::State<'_, SpotifyState>,
+) -> Result<bool, String> {
+    if let Some(token) = get_valid_token(&state).await {
+        let client = reqwest::Client::new();
+        if let Ok(resp) = client
+            .get("https://api.spotify.com/v1/me/player")
+            .bearer_auth(&token)
+            .send()
+            .await
+        {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(shuffle) = json.get("shuffle_state").and_then(|s| s.as_bool()) {
+                    return Ok(shuffle);
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        if let Ok(out) = Command::new("busctl")
+            .args([
+                "--user",
+                "get-property",
+                "org.mpris.MediaPlayer2.spotify",
+                "/org/mpris/MediaPlayer2",
+                "org.mpris.MediaPlayer2.Player",
+                "Shuffle",
+            ])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            if text.contains("true") {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}
+
+#[tauri::command]
 pub async fn set_spotify_shuffle(
     state: tauri::State<'_, SpotifyState>,
     shuffle_state: bool,

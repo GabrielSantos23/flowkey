@@ -146,6 +146,31 @@ export interface LocalSendIncomingTransfer {
 
 export * from "./clipboard";
 
+export interface TranslationItem {
+  detected_source_language?: string;
+  text: string;
+}
+
+export interface DeepLTranslateResponse {
+  translations: TranslationItem[];
+}
+
+export interface TranslationUsage {
+  character_count: number;
+  character_limit: number;
+  remaining_characters: number;
+  percent_used: number;
+  is_limit_reached: boolean;
+  is_online: boolean;
+  api_tier: string;
+}
+
+export interface LanguageOption {
+  code: string;
+  name: string;
+  native_name: string;
+}
+
 export type OverlayType =
   | "none"
   | "volume"
@@ -155,4 +180,4 @@ export type OverlayType =
   | "drop-localsend"
   | "tray-saving"
   | "tray-confirmed";
-export type ViewMode = "spotify" | "pomodoro" | "tray" | "clipboard";
+export type ViewMode = "spotify" | "pomodoro" | "tray" | "clipboard" | "translate";

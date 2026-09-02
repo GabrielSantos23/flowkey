@@ -9,3 +9,4 @@ pub mod tray_files;
 pub mod weather;
 pub mod localsend_api;
 pub mod clipboard;
+pub mod translate;

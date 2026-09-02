@@ -44,7 +44,7 @@ const BlurText: React.FC<BlurTextProps> = ({
   stepDuration = 0.35
 }) => {
   const elements = animateBy === 'words' ? text.split(' ') : text.split('');
-  const [inView, setInView] = useState(false);
+  const [inView, setInView] = useState(true);
   const ref = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -64,16 +64,16 @@ const BlurText: React.FC<BlurTextProps> = ({
 
   const defaultFrom = useMemo(
     () =>
-      direction === 'top' ? { filter: 'blur(10px)', opacity: 0, y: -50 } : { filter: 'blur(10px)', opacity: 0, y: 50 },
+      direction === 'top' ? { filter: 'blur(5px)', opacity: 0, y: -6 } : { filter: 'blur(5px)', opacity: 0, y: 6 },
     [direction]
   );
 
   const defaultTo = useMemo(
     () => [
       {
-        filter: 'blur(5px)',
-        opacity: 0.5,
-        y: direction === 'top' ? 5 : -5
+        filter: 'blur(2px)',
+        opacity: 0.6,
+        y: direction === 'top' ? 1 : -1
       },
       { filter: 'blur(0px)', opacity: 1, y: 0 }
     ],
@@ -88,7 +88,7 @@ const BlurText: React.FC<BlurTextProps> = ({
   const times = Array.from({ length: stepCount }, (_, i) => (stepCount === 1 ? 0 : i / (stepCount - 1)));
 
   return (
-    <p ref={ref} className={`blur-text ${className} flex flex-wrap`}>
+    <span ref={ref as any} className={`blur-text ${className} inline-flex items-center`}>
       {elements.map((segment, index) => {
         const animateKeyframes = buildKeyframes(fromSnapshot, toSnapshots);
 
@@ -116,7 +116,7 @@ const BlurText: React.FC<BlurTextProps> = ({
           </motion.span>
         );
       })}
-    </p>
+    </span>
   );
 };
 

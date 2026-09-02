@@ -1,7 +1,7 @@
 import React from "react";
-import { Volume2, Volume1, BellOff } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { SizeTransitionBlur } from "../common/SizeTransitionBlur";
+import { Volume2, Volume1, VolumeX } from "lucide-react";
+import { motion } from "framer-motion";
+import BlurText from "../common/BlurText";
 
 interface VolumeOverlayProps {
   volume: number;
@@ -10,69 +10,56 @@ interface VolumeOverlayProps {
 
 export const VolumeOverlay: React.FC<VolumeOverlayProps> = ({ volume, isMuted }) => {
   const isSilent = isMuted || volume === 0;
+  const digits = (isSilent ? "0" : String(volume)).split("");
 
   return (
-    <div className="flex items-center h-8 select-none w-[260px] overflow-hidden relative">
-      <SizeTransitionBlur triggerKey={isSilent} className="w-full">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {isSilent ? (
-            /* MUTE / SILENT MODE (Matches media_1788195366187.png) */
-            <motion.div
-              key="silent"
-              initial={{ opacity: 0, scale: 0.9, y: 3 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -3 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="flex items-center justify-between w-full px-2"
-            >
-              {/* Red Pill Badge with Mute Icon */}
-              <motion.div
-                layout
-                className="bg-[#eb4d4b] px-2.5 py-0.5 rounded-full flex items-center justify-center shadow-sm"
-              >
-                <BellOff className="w-3.5 h-3.5 text-white" />
-              </motion.div>
+    <div className="flex items-center justify-between h-8 select-none w-[280px] px-3.5 relative">
+      {/* Left: Speaker Icon + "Volume" text */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {isSilent ? (
+          <VolumeX className="w-3.5 h-3.5 text-neutral-400" />
+        ) : volume > 50 ? (
+          <Volume2 className="w-3.5 h-3.5 text-white fill-white stroke-none" />
+        ) : (
+          <Volume1 className="w-3.5 h-3.5 text-white fill-white stroke-none" />
+        )}
+        <span className="text-xs font-bold text-white tracking-tight">
+          {isSilent ? "Muted" : "Volume"}
+        </span>
+      </div>
 
-              {/* Red Silent Text */}
-              <motion.span
-                layout
-                className="text-[#eb4d4b] font-bold text-xs pr-2 tracking-tight"
-              >
-                Silent
-              </motion.span>
-            </motion.div>
-          ) : (
-            /* VOLUME LEVEL SLIDER (Matches media_1788195354711.png) */
-            <motion.div
-              key="volume"
-              initial={{ opacity: 0, scale: 0.9, y: 3 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -3 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="flex items-center gap-3.5 w-full px-3.5"
-            >
-              {/* White Speaker Icon */}
-              <div className="flex-shrink-0 text-white">
-                {volume > 50 ? (
-                  <Volume2 className="w-4 h-4 text-white fill-white stroke-none" />
-                ) : (
-                  <Volume1 className="w-4 h-4 text-white fill-white stroke-none" />
-                )}
-              </div>
+      {/* Right: Green Progress Pill Bar + Volume Number with per-digit BlurText */}
+      <div className="flex items-center gap-2.5 flex-shrink-0">
+        {/* Deep Green Track Pill Container */}
+        <div className="w-[84px] h-[7px] bg-[#092b10] rounded-full overflow-hidden p-[0.5px]">
+          <motion.div
+            className="h-full bg-[#00E640] rounded-full"
+            initial={false}
+            animate={{ width: isSilent ? "0%" : `${Math.min(100, Math.max(0, volume))}%` }}
+            transition={{ type: "spring", stiffness: 450, damping: 30 }}
+          />
+        </div>
 
-              {/* Horizontal Smooth Progress Bar */}
-              <div className="relative flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-white rounded-full"
-                  initial={false}
-                  animate={{ width: `${Math.min(100, Math.max(0, volume))}%` }}
-                  transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </SizeTransitionBlur>
+        {/* Dynamic Number: ONLY the digits that changed will blur & animate */}
+        <div className="min-w-[24px] flex items-center justify-end font-mono tabular-nums">
+          {digits.map((digit, idx) => (
+            <div key={idx} className="w-[7.5px] flex items-center justify-center">
+              <BlurText
+                key={`digit-${idx}-${digit}`}
+                text={digit}
+                className="text-xs font-bold text-white tracking-tight justify-center"
+                delay={0}
+                stepDuration={0.12}
+                direction="top"
+                animateBy="letters"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
+
+export default VolumeOverlay;
+

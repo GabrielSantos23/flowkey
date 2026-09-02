@@ -12,6 +12,7 @@ use commands::system::*;
 use commands::tray_files::*;
 use commands::weather::*;
 use commands::clipboard::*;
+use commands::translate::*;
 use localsend::LocalSendState;
 
 #[cfg(target_os = "linux")]
@@ -28,6 +29,17 @@ pub fn run() {
     // Install rustls ring crypto provider globally. Required because both axum-server (aws-lc-rs)
     // and reqwest (ring) pull in rustls with different providers. We must install one explicitly.
     let _ = rustls::crypto::ring::default_provider().install_default();
+
+    // Optimize WebView2 resource usage on Windows (disable telemetry, translate, reduce background timer throttling overhead)
+    #[cfg(target_os = "windows")]
+    {
+        if std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_err() {
+            std::env::set_var(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                "--disable-features=Translate,OptimizationHints,MediaRouter --disable-backgrounding-occluded-windows --enable-low-res-tiling",
+            );
+        }
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -49,53 +61,50 @@ pub fn run() {
                 let _ = window.set_decorations(false);
                 let _ = window.set_shadow(false);
 
-                let mut pos_x = 0;
-                let pos_y = 0;
+                let logical_w = 660.0;
+                let logical_h = 520.0;
 
                 if let Ok(Some(monitor)) = window.current_monitor() {
                     let monitor_size = monitor.size();
                     let scale = monitor.scale_factor();
-                    let win_w = (600.0 * scale) as u32;
-                    let win_h = (420.0 * scale) as u32;
+                    let win_w = (logical_w * scale) as u32;
+                    let win_h = (logical_h * scale) as u32;
                     let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
                         width: win_w,
                         height: win_h,
                     }));
-                    pos_x = ((monitor_size.width as i32) - (win_w as i32)) / 2;
+                    let pos_x = ((monitor_size.width as i32) - (win_w as i32)) / 2;
+                    let pos_y = 0;
                     let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: pos_x, y: pos_y }));
-                }
 
-                #[cfg(target_os = "linux")]
-                {
-                    if let Ok(gtk_win) = window.gtk_window() {
-                        gtk_win.set_keep_above(true);
-                        gtk_win.stick();
-                        gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
-                        gtk_win.move_(pos_x, pos_y);
+                    #[cfg(target_os = "linux")]
+                    {
+                        if let Ok(gtk_win) = window.gtk_window() {
+                            gtk_win.set_keep_above(true);
+                            gtk_win.stick();
+                            gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
+                            gtk_win.move_(pos_x, pos_y);
 
-                        let pill_w = 220;
-                        let pill_h = 36;
-                        let mask_x = (600 - pill_w) / 2;
-                        let rect = cairo::RectangleInt::new(mask_x, 0, pill_w, pill_h);
-                        let region = cairo::Region::create_rectangle(&rect);
-                        gtk_win.input_shape_combine_region(Some(&region));
+                            let pill_w = 260;
+                            let pill_h = 44;
+                            let mask_x = (660 - pill_w) / 2;
+                            let rect = cairo::RectangleInt::new(mask_x, 0, pill_w, pill_h);
+                            let region = cairo::Region::create_rectangle(&rect);
+                            gtk_win.input_shape_combine_region(Some(&region));
+                        }
                     }
-                }
 
-                #[cfg(target_os = "windows")]
-                {
-                    if let Ok(hwnd) = window.hwnd() {
-                        unsafe {
-                            let pill_w = 220;
-                            let pill_h = 36;
-                            let mask_x = (600 - pill_w) / 2;
-                            let rgn = windows_sys::Win32::Graphics::Gdi::CreateRectRgn(
-                                mask_x,
-                                0,
-                                mask_x + pill_w,
-                                pill_h,
-                            );
-                            windows_sys::Win32::UI::WindowsAndMessaging::SetWindowRgn(hwnd.0 as _, rgn, 1);
+                    #[cfg(target_os = "windows")]
+                    {
+                        let _ = pos_x;
+                        if let Ok(hwnd) = window.hwnd() {
+                            unsafe {
+                                windows_sys::Win32::UI::WindowsAndMessaging::SetClassLongPtrW(
+                                    hwnd.0 as _,
+                                    windows_sys::Win32::UI::WindowsAndMessaging::GCLP_HBRBACKGROUND,
+                                    0,
+                                );
+                            }
                         }
                     }
                 }
@@ -135,6 +144,7 @@ pub fn run() {
                 .build(app)?;
 
             start_audio_volume_watcher(app.handle().clone());
+            start_mouse_pass_through_watcher(app.handle().clone());
 
             Ok(())
         })
@@ -178,6 +188,7 @@ pub fn run() {
             media_seek,
             get_media_info,
             get_spotify_queue,
+            get_spotify_shuffle_state,
             set_spotify_shuffle,
             spotify_login,
             spotify_logout,
@@ -189,11 +200,13 @@ pub fn run() {
             save_temp_dropped_file,
             download_url_to_temp,
             save_bytes_to_tray,
+            save_base64_to_tray,
             remove_tray_file,
             clear_tray_files,
             open_tray_file,
             show_in_folder,
             copy_tray_file_to_clipboard,
+            copy_tray_files_to_clipboard,
             paste_clipboard_to_tray,
             launch_shortcut,
             load_settings,
@@ -230,6 +243,9 @@ pub fn run() {
             fetch_url_preview,
             set_clipboard_text,
             set_clipboard_image,
+            translate_text,
+            get_translation_usage,
+            get_supported_languages,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DynamicWin application");

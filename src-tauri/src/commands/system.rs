@@ -72,11 +72,8 @@ pub fn position_window_at_top(app: AppHandle) -> bool {
         let _ = window.set_decorations(false);
         let _ = window.set_shadow(false);
 
-        let logical_w = 600.0;
-        let logical_h = 420.0;
-
-        let mut pos_x = 0;
-        let pos_y = 0;
+        let logical_w = 660.0;
+        let logical_h = 520.0;
 
         if let Ok(Some(monitor)) = window.current_monitor() {
             let monitor_size = monitor.size();
@@ -88,17 +85,18 @@ pub fn position_window_at_top(app: AppHandle) -> bool {
                 width: win_w,
                 height: win_h,
             }));
-            pos_x = ((monitor_size.width as i32) - (win_w as i32)) / 2;
+            let pos_x = ((monitor_size.width as i32) - (win_w as i32)) / 2;
+            let pos_y = 0;
             let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: pos_x, y: pos_y }));
-        }
 
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(gtk_win) = window.gtk_window() {
-                gtk_win.set_keep_above(true);
-                gtk_win.stick();
-                gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
-                gtk_win.move_(pos_x, pos_y);
+            #[cfg(target_os = "linux")]
+            {
+                if let Ok(gtk_win) = window.gtk_window() {
+                    gtk_win.set_keep_above(true);
+                    gtk_win.stick();
+                    gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
+                    gtk_win.move_(pos_x, pos_y);
+                }
             }
         }
 
@@ -134,6 +132,26 @@ pub fn resize_island_window(app: AppHandle, width: u32, height: u32) -> bool {
     false
 }
 
+#[cfg(target_os = "windows")]
+use std::sync::Mutex;
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Copy, Debug)]
+pub struct InputMask {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+#[cfg(target_os = "windows")]
+static CURRENT_INPUT_MASK: Mutex<Option<InputMask>> = Mutex::new(Some(InputMask {
+    x: (660 - 260) / 2,
+    y: 0,
+    width: 260,
+    height: 48,
+}));
+
 #[tauri::command]
 pub fn update_input_mask(app: AppHandle, x: i32, y: i32, width: i32, height: i32) -> bool {
     #[cfg(target_os = "linux")]
@@ -150,22 +168,14 @@ pub fn update_input_mask(app: AppHandle, x: i32, y: i32, width: i32, height: i32
 
     #[cfg(target_os = "windows")]
     {
-        if let Some(window) = app.get_webview_window("main") {
-            if let Ok(hwnd) = window.hwnd() {
-                unsafe {
-                    let rgn = windows_sys::Win32::Graphics::Gdi::CreateRectRgn(
-                        x,
-                        y,
-                        x + width,
-                        y + height,
-                    );
-                    windows_sys::Win32::UI::WindowsAndMessaging::SetWindowRgn(hwnd.0 as _, rgn, 1);
-                }
-                return true;
-            }
+        let _ = app;
+        if let Ok(mut mask) = CURRENT_INPUT_MASK.lock() {
+            *mask = Some(InputMask { x, y, width, height });
         }
+        return true;
     }
 
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     false
 }
 
@@ -183,17 +193,74 @@ pub fn clear_input_mask(app: AppHandle) -> bool {
 
     #[cfg(target_os = "windows")]
     {
-        if let Some(window) = app.get_webview_window("main") {
-            if let Ok(hwnd) = window.hwnd() {
-                unsafe {
-                    windows_sys::Win32::UI::WindowsAndMessaging::SetWindowRgn(hwnd.0 as _, 0, 1);
-                }
-                return true;
-            }
+        let _ = app;
+        if let Ok(mut mask) = CURRENT_INPUT_MASK.lock() {
+            *mask = None;
         }
+        return true;
     }
 
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
     false
+}
+
+pub fn start_mouse_pass_through_watcher(app: AppHandle) {
+    #[cfg(target_os = "windows")]
+    {
+        std::thread::spawn(move || {
+            let mut was_ignoring = false;
+
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(10)); // 100Hz smooth tracking
+
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Ok(is_visible) = window.is_visible() {
+                        if !is_visible {
+                            continue;
+                        }
+                    }
+
+                    let mut pt = windows_sys::Win32::Foundation::POINT { x: 0, y: 0 };
+                    unsafe {
+                        windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut pt);
+                    }
+
+                    if let Ok(pos) = window.outer_position() {
+                        if let Ok(scale) = window.scale_factor() {
+                            let client_css_x = (pt.x - pos.x) as f64 / scale;
+                            let client_css_y = (pt.y - pos.y) as f64 / scale;
+
+                            let should_ignore = if let Ok(guard) = CURRENT_INPUT_MASK.lock() {
+                                if let Some(mask) = *guard {
+                                    let pad_x = 6.0;
+                                    let pad_y = 6.0;
+                                    let is_inside = client_css_x >= (mask.x as f64 - pad_x)
+                                        && client_css_x <= ((mask.x + mask.width) as f64 + pad_x)
+                                        && client_css_y >= (mask.y as f64 - pad_y)
+                                        && client_css_y <= ((mask.y + mask.height) as f64 + pad_y);
+                                    !is_inside
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            };
+
+                            if should_ignore != was_ignoring {
+                                was_ignoring = should_ignore;
+                                let _ = window.set_ignore_cursor_events(should_ignore);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+    }
 }
 
 #[tauri::command]
@@ -226,21 +293,38 @@ pub fn get_system_volume() -> SystemAudioInfo {
 
     #[cfg(target_os = "windows")]
     {
-        let mut vol = 65;
-        let mut is_muted = false;
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use windows::Win32::Media::Audio::{
+            eMultimedia, eRender, IMMDeviceEnumerator, MMDeviceEnumerator,
+        };
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+        };
 
-        if let Ok(out) = Command::new("powershell")
-            .args(["-NoProfile", "-Command", "[Math]::Round((Get-AudioDevice -List | Where-Object Default).Volume)"])
-            .output()
-        {
-            if let Ok(v) = String::from_utf8_lossy(&out.stdout).trim().parse::<u32>() {
-                vol = v.min(100);
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+
+            let enumerator: Result<IMMDeviceEnumerator, _> =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
+
+            if let Ok(enumerator) = enumerator {
+                if let Ok(device) = enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia) {
+                    if let Ok(endpoint_vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                        let vol_scalar = endpoint_vol.GetMasterVolumeLevelScalar().unwrap_or(0.65);
+                        let is_muted = endpoint_vol.GetMute().map(|b| b.as_bool()).unwrap_or(false);
+
+                        return SystemAudioInfo {
+                            volume_percent: (vol_scalar * 100.0).round() as u32,
+                            is_muted,
+                        };
+                    }
+                }
             }
         }
 
         SystemAudioInfo {
-            volume_percent: vol,
-            is_muted,
+            volume_percent: 65,
+            is_muted: false,
         }
     }
 
@@ -272,7 +356,7 @@ pub fn start_audio_volume_watcher(app: AppHandle) {
                 let _ = app.emit("volume-changed", &info);
             }
 
-            std::thread::sleep(std::time::Duration::from_millis(150));
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     });
 }
@@ -289,9 +373,33 @@ pub fn set_system_volume(percent: u32) -> bool {
 
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("powershell")
-            .args(["-NoProfile", "-Command", &format!("Set-AudioDevice -Volume {}", percent.min(100))])
-            .status();
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use windows::Win32::Media::Audio::{
+            eMultimedia, eRender, IMMDeviceEnumerator, MMDeviceEnumerator,
+        };
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+        };
+
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+
+            let enumerator: Result<IMMDeviceEnumerator, _> =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL);
+
+            if let Ok(enumerator) = enumerator {
+                if let Ok(device) = enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia) {
+                    if let Ok(endpoint_vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                        let scalar = (percent.min(100) as f32) / 100.0;
+                        let _ = endpoint_vol.SetMasterVolumeLevelScalar(scalar, std::ptr::null());
+                        if percent > 0 {
+                            let _ = endpoint_vol.SetMute(false, std::ptr::null());
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
     }
 
     true
