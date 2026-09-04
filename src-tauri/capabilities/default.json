@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capabilities for DynamicWin",
+  "description": "Default capabilities for FlowKey",
   "windows": ["main", "settings", "*"],
   "permissions": [
     "core:default",

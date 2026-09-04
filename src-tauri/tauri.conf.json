@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
-  "productName": "DynamicWin",
+  "productName": "FlowKey",
   "version": "2.0.0",
-  "identifier": "com.dynamicwin.app",
+  "identifier": "com.flowkey.app",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "DynamicWin",
+        "title": "FlowKey",
         "width": 660,
         "height": 520,
         "x": null,
@@ -54,6 +54,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/icon.png",
@@ -65,7 +66,7 @@
       "open": true
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVFMzg0QkMwNzZBRTI4QTkKUldSZm1SbjVudkYyY0N3dWRQNFJ1cWlXdVl3OXRvR1Zqdkp5OGl1c20yUUVNdm54d0p4M2lyQmgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIyRTA5QjgwMzI3NDczMjQKUldRa2MzUXlnSnZnc2xrQXFQeTljb3NFY2VhbEI2SU85SWxrTmpOL21UejhJQU9HbkhnUnNSVmcK",
       "endpoints": [
         "https://github.com/GabrielSantos23/flowkey/releases/latest/download/latest.json"
       ]

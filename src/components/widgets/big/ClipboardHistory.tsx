@@ -623,7 +623,7 @@ export const ClipboardHistory: React.FC = () => {
                   <span>Application</span>
                   <div className="flex items-center gap-1.5 text-foreground font-medium">
                     {getAppBadge(selectedItem.metadata?.appName)}
-                    <span>{selectedItem.metadata?.appName || "DynamicWin"}</span>
+                    <span>{selectedItem.metadata?.appName || "FlowKey"}</span>
                   </div>
                 </div>
 

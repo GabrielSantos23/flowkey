@@ -92,7 +92,7 @@ export const MediaWidget: React.FC = () => {
               {media.title || "No Media"}
             </h4>
             <p className="text-xs text-muted-foreground truncate mt-0.5">
-              {media.artist || "DynamicWin"}
+              {media.artist || "FlowKey"}
             </p>
           </div>
         </div>

@@ -234,7 +234,7 @@ export const SpotifyLyrics: React.FC<SpotifyLyricsProps> = ({
 
     const targetMeta = parseTrackMeta(trackTitle, artistName);
     const headers = {
-      "Lrclib-Client": "DynamicWin/2.0 (https://github.com/GabrielSantos23/flowkey)",
+      "Lrclib-Client": "FlowKey/2.0 (https://github.com/GabrielSantos23/flowkey)",
     };
 
     try {

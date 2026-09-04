@@ -38,10 +38,19 @@ impl SpotifyState {
 
 fn get_config_path() -> PathBuf {
     let mut dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    dir.push("dynamicwin");
+    dir.push("FlowKey");
     let _ = fs::create_dir_all(&dir);
-    dir.push("spotify_tokens.json");
-    dir
+    let mut path = dir.clone();
+    path.push("spotify_tokens.json");
+    if !path.exists() {
+        let mut legacy_path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        legacy_path.push("dynamicwin");
+        legacy_path.push("spotify_tokens.json");
+        if legacy_path.exists() {
+            let _ = fs::copy(&legacy_path, &path);
+        }
+    }
+    path
 }
 
 fn load_stored_tokens() -> Option<SpotifyTokens> {
@@ -92,6 +101,14 @@ fn get_env_credentials() -> (String, String, String) {
                 }
             }
         }
+    }
+
+    // Default built-in credentials for FlowKey
+    if client_id.is_empty() {
+        client_id = "edb94d6fe42449359ed58f8d18371c96".to_string();
+    }
+    if client_secret.is_empty() {
+        client_secret = "cc0965fe0b53468a8cbd549be2198a28".to_string();
     }
 
     (client_id, client_secret, redirect_uri)

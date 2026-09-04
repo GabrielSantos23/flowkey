@@ -29,12 +29,23 @@ pub struct TrayInfo {
 }
 
 fn get_tray_dir() -> PathBuf {
-    let data_dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("DynamicWin")
-        .join("TrayFiles");
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    let data_dir = base.join("FlowKey").join("TrayFiles");
     if !data_dir.exists() {
-        let _ = fs::create_dir_all(&data_dir);
+        let legacy_dir = base.join("DynamicWin").join("TrayFiles");
+        if legacy_dir.exists() {
+            let _ = fs::create_dir_all(&data_dir);
+            if let Ok(entries) = fs::read_dir(&legacy_dir) {
+                for entry in entries.flatten() {
+                    let dest = data_dir.join(entry.file_name());
+                    if !dest.exists() {
+                        let _ = fs::copy(entry.path(), dest);
+                    }
+                }
+            }
+        } else {
+            let _ = fs::create_dir_all(&data_dir);
+        }
     }
     data_dir
 }
@@ -573,7 +584,7 @@ pub fn save_base64_to_tray(file_name: String, base64_data: String) -> Result<Tra
 
 #[tauri::command]
 pub async fn save_temp_dropped_file(file_name: String, bytes: Vec<u8>) -> Result<String, String> {
-    let temp_dir = std::env::temp_dir().join("DynamicWin_Temp");
+    let temp_dir = std::env::temp_dir().join("FlowKey_Temp");
     if !temp_dir.exists() {
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
     }
@@ -589,7 +600,7 @@ pub async fn save_temp_dropped_file(file_name: String, bytes: Vec<u8>) -> Result
 
 #[tauri::command]
 pub async fn download_url_to_temp(url: String) -> Result<String, String> {
-    let temp_dir = std::env::temp_dir().join("DynamicWin_Temp");
+    let temp_dir = std::env::temp_dir().join("FlowKey_Temp");
     if !temp_dir.exists() {
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
     }

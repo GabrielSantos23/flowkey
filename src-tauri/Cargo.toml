@@ -1,5 +1,5 @@
 [package]
-name = "dynamic-win"
+name = "flowkey"
 version = "2.0.0"
 description = "Dynamic Island & Notch for Desktop"
 authors = ["Gabriel Santos"]

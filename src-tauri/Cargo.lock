@@ -1143,51 +1143,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
-name = "dynamic-win"
-version = "2.0.0"
-dependencies = [
- "arboard",
- "axum",
- "axum-server",
- "base64 0.22.1",
- "cairo-rs",
- "dirs",
- "futures-util",
- "gdk",
- "gtk",
- "hex",
- "image",
- "local-ip-address",
- "mime_guess",
- "open",
- "rcgen",
- "reqwest 0.12.28",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "socket2 0.5.10",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-drag",
- "tauri-plugin-fs",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-positioner",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-updater",
- "tokio",
- "tokio-util",
- "tower-http 0.5.2",
- "urlencoding",
- "uuid",
- "windows 0.58.0",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "either"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1317,6 +1272,51 @@ dependencies = [
  "crc32fast",
  "miniz_oxide 0.9.1",
  "zlib-rs",
+]
+
+[[package]]
+name = "flowkey"
+version = "2.0.0"
+dependencies = [
+ "arboard",
+ "axum",
+ "axum-server",
+ "base64 0.22.1",
+ "cairo-rs",
+ "dirs",
+ "futures-util",
+ "gdk",
+ "gtk",
+ "hex",
+ "image",
+ "local-ip-address",
+ "mime_guess",
+ "open",
+ "rcgen",
+ "reqwest 0.12.28",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "socket2 0.5.10",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-drag",
+ "tauri-plugin-fs",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-positioner",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-updater",
+ "tokio",
+ "tokio-util",
+ "tower-http 0.5.2",
+ "urlencoding",
+ "uuid",
+ "windows 0.58.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

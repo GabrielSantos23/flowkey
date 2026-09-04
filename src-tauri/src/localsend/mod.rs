@@ -40,7 +40,7 @@ pub struct LocalSendState {
 
 impl LocalSendState {
     pub fn new(app: &AppHandle) -> Self {
-        let hostname = sysinfo::System::host_name().unwrap_or_else(|| "DynamicWin Device".to_string());
+        let hostname = sysinfo::System::host_name().unwrap_or_else(|| "FlowKey Device".to_string());
         // Generate self-signed certificate for LocalSend mTLS
         // Includes actual LAN IPs in the SAN (as IpAddress SAN entries) so the TLS handshake works
         // regardless of the IP the phone connects to.

@@ -117,12 +117,12 @@ pub fn run() {
             // Setup Tray Menu
             let toggle_i = MenuItem::with_id(app, "toggle", "Toggle Island", true, None::<&str>)?;
             let settings_i = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-            let quit_i = MenuItem::with_id(app, "quit", "Exit DynamicWin", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Exit FlowKey", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&toggle_i, &settings_i, &quit_i])?;
 
             let _tray = TrayIconBuilder::new()
                 .menu(&menu)
-                .tooltip("DynamicWin Overlay")
+                .tooltip("FlowKey")
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "toggle" => {
@@ -262,5 +262,5 @@ pub fn run() {
             get_supported_languages,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running DynamicWin application");
+        .expect("error while running FlowKey application");
 }

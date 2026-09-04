@@ -179,11 +179,23 @@ impl Default for CustomTheme {
 }
 
 fn get_config_dir() -> PathBuf {
-    let dir = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("DynamicWin");
+    let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+    let dir = base.join("FlowKey");
     if !dir.exists() {
-        let _ = fs::create_dir_all(&dir);
+        let legacy_dir = base.join("DynamicWin");
+        if legacy_dir.exists() {
+            let _ = fs::create_dir_all(&dir);
+            if let Ok(entries) = fs::read_dir(&legacy_dir) {
+                for entry in entries.flatten() {
+                    let dest = dir.join(entry.file_name());
+                    if !dest.exists() {
+                        let _ = fs::copy(entry.path(), dest);
+                    }
+                }
+            }
+        } else {
+            let _ = fs::create_dir_all(&dir);
+        }
     }
     dir
 }

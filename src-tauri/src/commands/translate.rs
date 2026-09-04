@@ -49,10 +49,19 @@ const DEFAULT_MONTHLY_LIMIT: u64 = 50_000;
 
 fn get_config_path() -> PathBuf {
     let mut dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    dir.push("dynamicwin");
+    dir.push("FlowKey");
     let _ = fs::create_dir_all(&dir);
-    dir.push("translation_usage.json");
-    dir
+    let mut path = dir.clone();
+    path.push("translation_usage.json");
+    if !path.exists() {
+        let mut legacy = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        legacy.push("dynamicwin");
+        legacy.push("translation_usage.json");
+        if legacy.exists() {
+            let _ = fs::copy(&legacy, &path);
+        }
+    }
+    path
 }
 
 fn get_current_month() -> String {

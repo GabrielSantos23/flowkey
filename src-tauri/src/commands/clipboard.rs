@@ -58,11 +58,20 @@ pub struct UrlPreviewData {
 }
 
 fn get_clipboard_file_path() -> PathBuf {
-    let data_dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("DynamicWin");
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    let data_dir = base.join("FlowKey");
     if !data_dir.exists() {
-        let _ = fs::create_dir_all(&data_dir);
+        let legacy_dir = base.join("DynamicWin");
+        if legacy_dir.exists() {
+            let _ = fs::create_dir_all(&data_dir);
+            let legacy_file = legacy_dir.join("clipboard_history.json");
+            let target_file = data_dir.join("clipboard_history.json");
+            if legacy_file.exists() && !target_file.exists() {
+                let _ = fs::copy(&legacy_file, &target_file);
+            }
+        } else {
+            let _ = fs::create_dir_all(&data_dir);
+        }
     }
     data_dir.join("clipboard_history.json")
 }

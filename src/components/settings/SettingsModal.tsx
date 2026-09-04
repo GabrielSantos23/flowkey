@@ -30,7 +30,7 @@ export const SettingsModal: React.FC = () => {
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground leading-none">DynamicWin Settings</h2>
+              <h2 className="text-base font-bold text-foreground leading-none">FlowKey Settings</h2>
               <p className="text-xs text-muted-foreground mt-1">Configure island appearance and behavior</p>
             </div>
           </div>
@@ -220,7 +220,7 @@ export const SettingsModal: React.FC = () => {
               <div className="p-3 rounded-xl bg-card border border-border space-y-2">
                 <p className="text-xs text-foreground">Screen Output</p>
                 <p className="text-[11px] text-muted-foreground">
-                  DynamicWin is attached to your Primary Monitor with automatic DPI scaling and centered layout.
+                  FlowKey is attached to your Primary Monitor with automatic DPI scaling and centered layout.
                 </p>
               </div>
             </div>
@@ -229,7 +229,7 @@ export const SettingsModal: React.FC = () => {
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-border text-xs text-muted-foreground">
-          <span>DynamicWin v2.0 (Tauri + React)</span>
+          <span>FlowKey v2.0 (Tauri + React)</span>
           <button
             onClick={() => setIsSettingsOpen(false)}
             className="px-4 py-1.5 rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-md"
