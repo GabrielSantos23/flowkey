@@ -3,6 +3,7 @@ import { Music, Timer as PomodoroIcon, Inbox, ClipboardList, Languages } from "l
 import { MediaStats, ViewMode } from "@/types";
 import { MinimalClockCapsule } from "../widgets/small/MinimalClockCapsule";
 import { SizeTransitionBlur } from "@/components/common/SizeTransitionBlur";
+import { useSettings } from "@/context/SettingsContext";
 
 interface CollapsedContentProps {
   isDualActive: boolean;
@@ -31,9 +32,21 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
   showIdleClock = false,
   isWheelPreviewing = false,
 }) => {
+  const { settings } = useSettings();
+  const enabledWidgets =
+    settings.enabled_widgets && settings.enabled_widgets.length > 0
+      ? settings.enabled_widgets
+      : ["spotify", "pomodoro", "tray", "clipboard", "translate"];
+
+  const isSpotifyEnabled = enabledWidgets.includes("spotify");
+  const isPomodoroEnabled = enabledWidgets.includes("pomodoro");
+  const isTrayEnabled = enabledWidgets.includes("tray");
+  const isClipboardEnabled = enabledWidgets.includes("clipboard");
+  const isTranslateEnabled = enabledWidgets.includes("translate");
+
   const renderSpotifyCapsule = () => (
     <div className="flex items-center justify-between w-full">
-      <div className="w-5 h-5 rounded-md bg-card border border-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+      <div className="w-5 h-5 rounded-md bg-card border border-border overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
         {media.art_url ? (
           <img src={media.art_url} alt={media.title} className="w-full h-full object-cover" onError={(e) => ((e.target as HTMLElement).style.display = "none")} />
         ) : (
@@ -43,18 +56,30 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
       <div className="flex-1" />
       <div className="flex items-center gap-[2.5px] h-3.5 px-0.5">
         <span
-          className={`w-[2.5px] bg-primary rounded-full transition-all ${
-            media.is_playing ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5" : "h-1 opacity-40"
+          className={`w-[2.5px] bg-white rounded-full transition-all ${
+            media.is_playing && !settings.disable_wave_animation
+              ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5"
+              : media.is_playing
+              ? "h-2 opacity-80"
+              : "h-1 opacity-40"
           }`}
         />
         <span
-          className={`w-[2.5px] bg-primary rounded-full transition-all ${
-            media.is_playing ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5" : "h-1.5 opacity-40"
+          className={`w-[2.5px] bg-white rounded-full transition-all ${
+            media.is_playing && !settings.disable_wave_animation
+              ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5"
+              : media.is_playing
+              ? "h-3 opacity-80"
+              : "h-1.5 opacity-40"
           }`}
         />
         <span
-          className={`w-[2.5px] bg-primary rounded-full transition-all ${
-            media.is_playing ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2" : "h-1 opacity-40"
+          className={`w-[2.5px] bg-white rounded-full transition-all ${
+            media.is_playing && !settings.disable_wave_animation
+              ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2"
+              : media.is_playing
+              ? "h-2 opacity-80"
+              : "h-1 opacity-40"
           }`}
         />
       </div>
@@ -63,19 +88,19 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
 
   const renderPomodoroCapsule = () => (
     <div className="flex items-center justify-between w-full gap-2">
-      <div className="w-5 h-5 rounded-full bg-accent/20 border border-accent/40 flex items-center justify-center flex-shrink-0">
+      <div className="w-5 h-5 rounded-full bg-accent/20 border border-accent/40 flex items-center justify-center shrink-0">
         <PomodoroIcon className="w-3 h-3 text-accent-foreground" />
       </div>
       <span className="text-[11px] font-semibold text-foreground capitalize truncate">{pomodoroMode}</span>
-      <span className="text-xs font-mono font-bold text-accent-foreground flex-shrink-0">{formatTime(pomodoroTimeRemaining)}</span>
+      <span className="text-xs font-mono font-bold text-accent-foreground shrink-0">{formatTime(pomodoroTimeRemaining)}</span>
     </div>
   );
 
   const renderInner = () => {
-    if (isDualActive) {
+    if (isDualActive && isSpotifyEnabled && isPomodoroEnabled) {
       return (
         <div className="flex items-center justify-between w-full">
-          <div className="w-5 h-5 rounded-md bg-card border border-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+          <div className="w-5 h-5 rounded-md bg-card border border-border overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
             {media.art_url ? (
               <img src={media.art_url} alt={media.title} className="w-full h-full object-cover" onError={(e) => ((e.target as HTMLElement).style.display = "none")} />
             ) : (
@@ -85,18 +110,30 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
           <div className="flex-1" />
           <div className="flex items-center gap-[2.5px] h-3.5 px-0.5">
             <span
-              className={`w-[2.5px] bg-primary rounded-full transition-all ${
-                media.is_playing ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5" : "h-1 opacity-40"
+              className={`w-[2.5px] bg-white rounded-full transition-all ${
+                media.is_playing && !settings.disable_wave_animation
+                  ? "animate-[bounce_0.75s_infinite_ease-in-out] h-2.5"
+                  : media.is_playing
+                  ? "h-2 opacity-80"
+                  : "h-1 opacity-40"
               }`}
             />
             <span
-              className={`w-[2.5px] bg-primary rounded-full transition-all ${
-                media.is_playing ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5" : "h-1.5 opacity-40"
+              className={`w-[2.5px] bg-white rounded-full transition-all ${
+                media.is_playing && !settings.disable_wave_animation
+                  ? "animate-[bounce_0.6s_infinite_ease-in-out_0.15s] h-3.5"
+                  : media.is_playing
+                  ? "h-3 opacity-80"
+                  : "h-1.5 opacity-40"
               }`}
             />
             <span
-              className={`w-[2.5px] bg-primary rounded-full transition-all ${
-                media.is_playing ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2" : "h-1 opacity-40"
+              className={`w-[2.5px] bg-white rounded-full transition-all ${
+                media.is_playing && !settings.disable_wave_animation
+                  ? "animate-[bounce_0.85s_infinite_ease-in-out_0.3s] h-2"
+                  : media.is_playing
+                  ? "h-2 opacity-80"
+                  : "h-1 opacity-40"
               }`}
             />
           </div>
@@ -104,19 +141,17 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
       );
     }
 
-    // When NOT previewing via wheel/drag, always display the active task (Spotify or Pomodoro), or fallback to clock
     if (!isWheelPreviewing) {
-      if (media.is_playing) {
+      if (media.is_playing && isSpotifyEnabled) {
         return renderSpotifyCapsule();
       }
-      if (isPomodoroActive) {
+      if (isPomodoroActive && isPomodoroEnabled) {
         return renderPomodoroCapsule();
       }
       return <MinimalClockCapsule />;
     }
 
-    // When previewing via wheel/drag, show the previewed widget:
-    if (viewMode === "tray") {
+    if (viewMode === "tray" && isTrayEnabled) {
       return (
         <div className="flex items-center justify-center gap-1.5 w-full text-foreground px-1">
           <Inbox className="w-3.5 h-3.5 text-primary" />
@@ -125,7 +160,7 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
       );
     }
 
-    if (viewMode === "clipboard") {
+    if (viewMode === "clipboard" && isClipboardEnabled) {
       return (
         <div className="flex items-center justify-center gap-1.5 w-full text-foreground px-1">
           <ClipboardList className="w-3.5 h-3.5 text-primary" />
@@ -134,7 +169,7 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
       );
     }
 
-    if (viewMode === "translate") {
+    if (viewMode === "translate" && isTranslateEnabled) {
       return (
         <div className="flex items-center justify-center gap-1.5 w-full text-foreground px-1">
           <Languages className="w-3.5 h-3.5 text-primary" />
@@ -143,11 +178,11 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
       );
     }
 
-    if (viewMode === "pomodoro" || isPomodoroActive) {
+    if ((viewMode === "pomodoro" || isPomodoroActive) && isPomodoroEnabled) {
       return renderPomodoroCapsule();
     }
 
-    if (viewMode === "spotify" || media.is_playing) {
+    if ((viewMode === "spotify" || media.is_playing) && isSpotifyEnabled) {
       return renderSpotifyCapsule();
     }
 
@@ -156,7 +191,7 @@ export const CollapsedContent: React.FC<CollapsedContentProps> = ({
 
   return (
     <SizeTransitionBlur
-      triggerKey={`${viewMode}-${showIdleClock}-${isDualActive}-${media.is_playing}-${isPomodoroActive}-${isWheelPreviewing}`}
+      triggerKey={`${viewMode}-${showIdleClock}-${isDualActive}-${media.is_playing}-${isPomodoroActive}-${isWheelPreviewing}-${enabledWidgets.join(",")}`}
       maxBlur={7}
       duration={0.2}
       className="w-full h-full flex items-center justify-center"

@@ -425,7 +425,7 @@ export const SpotifyLyrics: React.FC<SpotifyLyricsProps> = ({
                 e.stopPropagation();
                 fetchLyrics(true);
               }}
-              className="text-[10px] text-primary hover:underline font-semibold mt-0.5"
+              className="text-[10px] text-white hover:underline font-semibold mt-0.5"
             >
               Try Again
             </button>

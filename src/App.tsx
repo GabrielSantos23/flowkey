@@ -8,6 +8,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { moveWindow, Position } from "@tauri-apps/plugin-positioner";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { DynamicIsland } from "./components/DynamicIsland/DynamicIsland";
+import { ToastProvider } from "./components/ui/toast";
+import { AppUpdaterProvider } from "./context/UpdateContext";
 
 export const App: React.FC = () => {
   const [isSettingsWindow, setIsSettingsWindow] = useState(false);
@@ -36,13 +38,17 @@ export const App: React.FC = () => {
       <SettingsProvider>
         <PomodoroProvider>
           <LocalSendProvider>
-            {isSettingsWindow ? (
-              <SettingsWindow />
-            ) : (
-              <main className="w-full h-full relative overflow-hidden bg-transparent flex flex-col items-center justify-start">
-                <DynamicIsland />
-              </main>
-            )}
+            <AppUpdaterProvider>
+              {isSettingsWindow ? (
+                <ToastProvider position="bottom-right">
+                  <SettingsWindow />
+                </ToastProvider>
+              ) : (
+                <main className="w-full h-full relative overflow-hidden bg-transparent flex flex-col items-center justify-start">
+                  <DynamicIsland />
+                </main>
+              )}
+            </AppUpdaterProvider>
           </LocalSendProvider>
         </PomodoroProvider>
       </SettingsProvider>

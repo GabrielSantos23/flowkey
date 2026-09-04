@@ -19,7 +19,7 @@
         "height": 520,
         "x": null,
         "y": 0,
-        "resizable": true,
+        "resizable": false,
         "fullscreen": false,
         "transparent": true,
         "decorations": false,
@@ -32,13 +32,15 @@
       },
       {
         "label": "settings",
-        "title": "DynamicWin Settings",
-        "width": 680,
-        "height": 580,
+        "title": "FlowKey Settings",
+        "width": 1020,
+        "height": 660,
+        "minWidth": 820,
+        "minHeight": 520,
         "resizable": true,
         "fullscreen": false,
         "transparent": false,
-        "decorations": true,
+        "decorations": false,
         "alwaysOnTop": false,
         "shadow": true,
         "skipTaskbar": false,
@@ -61,6 +63,12 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVFMzg0QkMwNzZBRTI4QTkKUldSZm1SbjVudkYyY0N3dWRQNFJ1cWlXdVl3OXRvR1Zqdkp5OGl1c20yUUVNdm54d0p4M2lyQmgK",
+      "endpoints": [
+        "https://github.com/GabrielSantos23/flowkey/releases/latest/download/latest.json"
+      ]
     }
   }
 }

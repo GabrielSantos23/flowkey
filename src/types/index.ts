@@ -10,11 +10,21 @@ export interface AppSettings {
   small_widgets_middle: string[];
   small_widgets_right: string[];
   big_widgets: string[];
+  enabled_widgets?: string[];
   use_celsius: boolean;
   hide_location: boolean;
   volume_popup: boolean;
-  brightness_popup: boolean;
+  brightness_popup?: boolean;
+  disable_wave_animation?: boolean;
+  auto_hide_on_fullscreen?: boolean;
+  game_mode_disable_animations?: boolean;
   is_hidden: boolean;
+  toggle_island_hotkey?: string;
+  open_spotify_hotkey?: string;
+  open_pomodoro_hotkey?: string;
+  open_tray_hotkey?: string;
+  open_clipboard_hotkey?: string;
+  open_translate_hotkey?: string;
   spotify_search_hotkey?: string;
 }
 

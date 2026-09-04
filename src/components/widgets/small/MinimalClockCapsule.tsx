@@ -12,7 +12,7 @@ export const MinimalClockCapsule: React.FC = () => {
   const showColon = seconds % 2 === 0;
   return (
     <div
-      className="flex items-center justify-center w-full h-full select-none"
+      className="flex items-center justify-center w-full h-full select-none "
     >
       <div className="flex items-center justify-center font-mono text-[13px] font-semibold tracking-wider text-foreground leading-none">
         <span className="tabular-nums">{hours}</span>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { MediaStats, SpotifyQueueTrack } from "../../../types";
-import { Play, Pause, Music, Shuffle, List, X, Settings, ChevronsLeft, ChevronsRight, Mic2 } from "lucide-react";
+import { Play, Music, Shuffle, List, Settings, Mic2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SpotifyQueueSkeleton } from "@/components/skeletons";
 import { SizeTransitionBlur } from "@/components/common/SizeTransitionBlur";
@@ -24,7 +24,6 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
   const [queueTracks, setQueueTracks] = useState<SpotifyQueueTrack[]>([]);
   const [isLoadingQueue, setIsLoadingQueue] = useState(false);
   const [isSpotifyAuthed, setIsSpotifyAuthed] = useState(false);
-  const [processingTrackId, setProcessingTrackId] = useState<string | null>(null);
 
   // Check Spotify API authorization and shuffle state on mount
   const checkAuthAndShuffle = async () => {
@@ -99,27 +98,17 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
     if (onQueueToggle) onQueueToggle(nextPanel !== null);
   };
 
-  const handlePromoteToNext = (track: SpotifyQueueTrack, e: React.MouseEvent) => {
+  const handlePlayQueueTrack = async (track: SpotifyQueueTrack, e: React.MouseEvent) => {
     e.stopPropagation();
-    const trackIdentifier = track.id || track.uri;
-    if (processingTrackId || !trackIdentifier) return;
-
-    const currIndex = queueTracks.findIndex(
-      (t) => (t.id || t.uri) === trackIdentifier
-    );
-    if (currIndex <= 0) return; // already top item or not found
-
-    setProcessingTrackId(trackIdentifier);
-
-    setTimeout(() => {
-      setQueueTracks((prev) => {
-        const item = prev.find((t) => (t.id || t.uri) === trackIdentifier);
-        if (!item) return prev;
-        const rest = prev.filter((t) => (t.id || t.uri) !== trackIdentifier);
-        return [item, ...rest];
-      });
-      setProcessingTrackId(null);
-    }, 400);
+    const uri = track.uri || (track.id ? `spotify:track:${track.id}` : null);
+    if (!uri) return;
+    try {
+      await invoke("spotify_play", { uris: [uri] });
+      if (onRefreshMedia) setTimeout(onRefreshMedia, 300);
+      setTimeout(fetchQueue, 800);
+    } catch (err) {
+      console.error("Failed to play track directly", err);
+    }
   };
 
   const handleShuffleToggle = async (e: React.MouseEvent) => {
@@ -148,17 +137,21 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
   const handleNext = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await invoke("media_next");
+      await invoke("spotify_next");
       if (onRefreshMedia) setTimeout(onRefreshMedia, 300);
-    } catch {}
+    } catch {
+      await invoke("media_next");
+    }
   };
 
   const handlePrev = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await invoke("media_prev");
+      await invoke("spotify_previous");
       if (onRefreshMedia) setTimeout(onRefreshMedia, 300);
-    } catch {}
+    } catch {
+      await invoke("media_prev");
+    }
   };
 
   const handleSeek = async (e: React.MouseEvent<HTMLDivElement>) => {
@@ -184,10 +177,6 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
     } catch {}
   };
 
-  const removeQueueItem = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setQueueTracks((prev) => prev.filter((t) => t.id !== id));
-  };
 
   const handleOpenSpotify = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -224,19 +213,16 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
   return (
     <SizeTransitionBlur triggerKey={activePanel || "none"} maxBlur={8} className="w-full">
       <div className="w-full flex items-start p-3.5 bg-transparent text-foreground select-none">
-        {/* LEFT COLUMN: Main Player */}
         <div
-          className={`flex flex-col justify-between h-[142px] transition-all ${
-            activePanel !== null ? "w-[295px] pr-3.5 flex-shrink-0" : "w-full"
+          className={`flex flex-col justify-between h-35.5 transition-all ${
+            activePanel !== null ? "w-73.75 pr-3.5 shrink-0" : "w-full"
           }`}
         >
-        {/* Top: Cover, Info & Lyrics Button */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            {/* Album Art */}
             <div
               onClick={handleOpenSpotify}
-              className="relative w-12 h-12 rounded-xl bg-muted border border-border overflow-hidden flex-shrink-0 shadow-lg flex items-center justify-center cursor-pointer group/art transition-transform duration-300 hover:scale-108 hover:shadow-[0_6px_20px_rgba(0,0,0,0.6)] active:scale-95"
+              className="relative w-12 h-12 rounded-xl bg-muted border border-border overflow-hidden shrink-0 shadow-lg flex items-center justify-center cursor-pointer group/art transition-transform duration-300 hover:scale-108 hover:shadow-[0_6px_20px_rgba(0,0,0,0.6)] active:scale-95"
             >
               {media.art_url ? (
                 <img
@@ -254,7 +240,6 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
               )}
             </div>
 
-            {/* Title & Artist */}
             <div className="min-w-0 flex-1">
               <h3 className="text-[13px] font-bold text-foreground tracking-tight truncate leading-tight">
                 {media.title || "No Media Playing"}
@@ -267,12 +252,11 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
 
           <button
             onClick={toggleLyrics}
-            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all active:scale-90 flex-shrink-0 ${
+            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all active:scale-90 shrink-0 ${
               activePanel === "lyrics"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-white text-secondary shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
-            title="Lyrics (LRCLIB)"
           >
             <Mic2 className="w-4 h-4" />
           </button>
@@ -286,78 +270,77 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
             className="group/bar relative flex-1 h-1 bg-muted rounded-full cursor-pointer overflow-hidden transition-all hover:h-1.5"
           >
             <div
-              className="h-full bg-primary rounded-full transition-all"
+              className="h-full bg-green-500 rounded-full transition-all"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
           <span className="w-7 text-right">-{formatTime(remainingSecs)}</span>
         </div>
 
-        {/* Bottom Controls */}
         <div className="flex items-center justify-between pt-0.5 px-0.5">
-          {/* Queue Button */}
           <button
             onClick={toggleQueue}
             className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
               activePanel === "queue"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-white text-secondary shadow-sm"
                 : isSpotifyAuthed
                 ? "bg-secondary text-foreground hover:bg-accent"
                 : "bg-muted/40 text-muted-foreground hover:text-foreground"
             }`}
-            title={isSpotifyAuthed ? "Playing Next" : "Connect Spotify API in Settings to view queue"}
+           title={!isSpotifyAuthed ? "Connect Spotify API in Settings to view queue" : undefined}
           >
             <List className="w-4 h-4" />
           </button>
 
-          {/* Center Playback Controls */}
           <div className="flex items-center gap-4">
             <button
               onClick={handlePrev}
-              className="p-1 text-foreground hover:opacity-80 active:scale-90 transition-all"
-              title="Previous"
+              className="p-1 text-foreground hover:scale-110 active:scale-90 transition-all focus:outline-none"
             >
-              <ChevronsLeft className="w-7 h-7 fill-foreground stroke-none" />
+
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-8">
+                <path d="M9.195 18.44c1.25.714 2.805-.189 2.805-1.629v-2.34l6.945 3.968c1.25.715 2.805-.188 2.805-1.628V8.69c0-1.44-1.555-2.343-2.805-1.628L12 11.029v-2.34c0-1.44-1.555-2.343-2.805-1.628l-7.108 4.061c-1.26.72-1.26 2.536 0 3.256l7.108 4.061Z" />
+              </svg>
+
             </button>
 
             <button
               onClick={handlePlayPause}
-              className="p-1 text-foreground hover:scale-110 active:scale-95 transition-all flex items-center justify-center"
-              title={media.is_playing ? "Pause" : "Play"}
+              className="p-1 text-foreground hover:scale-110 active:scale-95 transition-all flex items-center justify-center focus:outline-none"
             >
               {media.is_playing ? (
-                <Pause className="w-7 h-7 fill-foreground stroke-none" />
-              ) : (
-                <Play className="w-7 h-7 fill-foreground stroke-none ml-0.5" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-9">
+                  <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clipRule="evenodd" />
+                </svg>
+
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-9">
+                    <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
+                  </svg>
               )}
             </button>
 
             <button
               onClick={handleNext}
-              className="p-1 text-foreground hover:opacity-80 active:scale-90 transition-all"
-              title="Next"
+              className="p-1 text-foreground hover:scale-110 active:scale-90 transition-all focus:outline-none"
             >
-              <ChevronsRight className="w-7 h-7 fill-foreground stroke-none" />
+
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-8">
+                <path d="M5.055 7.06C3.805 6.347 2.25 7.25 2.25 8.69v8.122c0 1.44 1.555 2.343 2.805 1.628L12 14.471v2.34c0 1.44 1.555 2.343 2.805 1.628l7.108-4.061c1.26-.72 1.26-2.536 0-3.256l-7.108-4.061C13.555 6.346 12 7.249 12 8.689v2.34L5.055 7.061Z" />
+              </svg>
             </button>
           </div>
 
-          {/* Shuffle Button */}
           <button
             onClick={handleShuffleToggle}
             className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
               isShuffle
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-white text-secondary shadow-sm"
                 : isSpotifyAuthed
                 ? "bg-secondary text-foreground hover:bg-accent"
                 : "bg-muted/40 text-muted-foreground hover:text-foreground"
             }`}
-            title={
-              isSpotifyAuthed
-                ? isShuffle
-                  ? "Shuffle: On"
-                  : "Shuffle: Off"
-                : "Connect Spotify in Settings"
-            }
+
           >
             <Shuffle className="w-4 h-4" />
           </button>
@@ -385,7 +368,7 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
                 width: { duration: 0.28, ease: [0.32, 0.72, 0, 1], delay: 0.06 },
               },
             }}
-            className="overflow-hidden h-[142px] flex flex-col justify-between"
+            className="overflow-hidden h-35.5 flex flex-col justify-between"
           >
             {activePanel === "lyrics" ? (
               <SpotifyLyrics
@@ -401,11 +384,10 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
               <div
                 data-scrollable="true"
                 onWheel={(e) => e.stopPropagation()}
-                className="w-[275px] pl-4 border-l border-border flex flex-col justify-between h-[142px] overflow-hidden select-none"
+                className="w-68.75 pl-4 border-l border-border flex flex-col justify-between h-35.5 overflow-hidden select-none"
               >
                 <div className="flex flex-col h-full gap-1">
-                  {/* Header */}
-                  <div className="flex items-center justify-between pb-1 flex-shrink-0">
+                  <div className="flex items-center justify-between pb-1 shrink-0">
                     <span className="text-[13px] font-bold text-foreground tracking-tight">
                       Playing Next
                     </span>
@@ -420,7 +402,6 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
                     )}
                   </div>
 
-                  {/* Queue Items or Skeletons */}
                   {!isSpotifyAuthed ? (
                     <div className="p-2.5 rounded-xl bg-card border border-border text-center flex flex-col items-center gap-1.5 my-auto">
                       <p className="text-[11px] text-muted-foreground">
@@ -428,7 +409,7 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
                       </p>
                       <button
                         onClick={openSettings}
-                        className="px-2.5 py-0.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 active:scale-95 transition-all"
+                        className="px-2.5 py-0.5 rounded-lg bg-white text-primary-foreground text-[11px] font-bold hover:bg-primary/90 active:scale-95 transition-all"
                       >
                         Connect in Settings
                       </button>
@@ -448,27 +429,22 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
                     >
                       {queueTracks.slice(0, 5).map((track, idx) => {
                         const trackId = track.id || track.uri || String(idx);
-                        const isProcessing = processingTrackId === (track.id || track.uri);
                         const isNext = idx === 0;
 
                         return (
-                          <motion.div
+                          <div
                             key={trackId}
-                            layout
-                            transition={{ duration: 0.25, ease: "easeOut" }}
-                            onClick={(e) => handlePromoteToNext(track, e)}
-                            className={`group/item flex items-center justify-between p-1 rounded-lg transition-all cursor-pointer ${
-                              isProcessing
-                                ? "bg-primary/20 border border-primary/40 shadow-sm"
-                                : isNext
+                            className={`group/item flex items-center justify-between p-1 rounded-lg transition-all ${
+                              isNext
                                 ? "bg-card hover:bg-accent border border-border"
                                 : "hover:bg-accent border border-transparent"
                             }`}
-                            title={isNext ? "Next Track" : "Click to promote to next"}
                           >
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {/* Track Album Art */}
-                              <div className="w-7 h-7 rounded-lg bg-muted border border-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm relative">
+                              <div
+                                onClick={(e) => handlePlayQueueTrack(track, e)}
+                                className="w-7 h-7 rounded-lg bg-muted border border-border overflow-hidden shrink-0 flex items-center justify-center shadow-sm relative group/art cursor-pointer hover:border-foreground/50 transition-all"
+                              >
                                 {track.album_art ? (
                                   <img
                                     src={track.album_art}
@@ -481,40 +457,21 @@ export const SpotifyExpandedPlayer: React.FC<SpotifyExpandedPlayerProps> = ({
                                 ) : (
                                   <Music className="w-3.5 h-3.5 text-muted-foreground" />
                                 )}
+                                <div className="absolute inset-0 bg-background/60 items-center justify-center hidden group-hover/art:flex">
+                                  <Play className="w-3 h-3 text-foreground fill-foreground" />
+                                </div>
                               </div>
 
-                              {/* Track Info */}
                               <div className="min-w-0 flex-1">
-                                <div
-                                  className={`text-[11.5px] font-semibold truncate max-w-[145px] leading-tight transition-all ${
-                                    isProcessing
-                                      ? "animate-pulse text-primary font-bold"
-                                      : "text-foreground group-hover/item:text-primary"
-                                  }`}
-                                >
+                                <div className="text-[11.5px] font-semibold truncate max-w-36.25 leading-tight text-foreground/90 group-hover/item:text-foreground transition-all">
                                   {track.title}
                                 </div>
-                                <div
-                                  className={`text-[10px] truncate max-w-[145px] mt-0.5 transition-all ${
-                                    isProcessing
-                                      ? "animate-pulse text-primary/80"
-                                      : "text-muted-foreground group-hover/item:text-foreground"
-                                  }`}
-                                >
+                                <div className="text-[10px] truncate max-w-36.25 mt-0.5 text-muted-foreground group-hover/item:text-foreground transition-all">
                                   {track.artist}
                                 </div>
                               </div>
                             </div>
-
-                            {/* Remove Button */}
-                            <button
-                              onClick={(e) => removeQueueItem(track.id, e)}
-                              className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover/item:opacity-100 transition-all flex-shrink-0"
-                              title="Remove from queue"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </motion.div>
+                          </div>
                         );
                       })}
                     </div>

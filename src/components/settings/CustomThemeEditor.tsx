@@ -32,7 +32,7 @@ export const CustomThemeEditor: React.FC = () => {
         <span className="text-[10px] text-muted-foreground">Live JSON Theme</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
         {fields.map(({ key, label }) => (
           <div key={key} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-muted/40 border border-border">
             <span className="text-[11px] text-foreground truncate">{label}</span>

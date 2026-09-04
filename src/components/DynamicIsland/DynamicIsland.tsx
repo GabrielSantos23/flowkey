@@ -93,34 +93,85 @@ export const DynamicIsland: React.FC = () => {
   const { media, fetchMedia } = useMediaStats();
   const mediaRef = useRef(media);
   mediaRef.current = media;
-  const isDualActive = media.is_playing && isPomodoroActive;
 
-  // Auto-switch to active widget when started by user
+  const enabledWidgets =
+    settings.enabled_widgets && settings.enabled_widgets.length > 0
+      ? settings.enabled_widgets
+      : ["spotify", "pomodoro", "tray", "clipboard", "translate"];
+
+  const isSpotifyEnabled = enabledWidgets.includes("spotify");
+  const isPomodoroEnabled = enabledWidgets.includes("pomodoro");
+  const isTrayEnabled = enabledWidgets.includes("tray");
+  const isClipboardEnabled = enabledWidgets.includes("clipboard");
+  const isTranslateEnabled = enabledWidgets.includes("translate");
+
+  const isDualActive = isSpotifyEnabled && isPomodoroEnabled && media.is_playing && isPomodoroActive;
+
+  // Ensure viewMode is valid if current widget was disabled
   useEffect(() => {
-    if (media.is_playing) {
+    if (!enabledWidgets.includes(viewMode)) {
+      const fallback = (enabledWidgets[0] as ViewMode) || "spotify";
+      setViewMode(fallback);
+    }
+  }, [enabledWidgets, viewMode]);
+
+  // Auto-switch to active widget when started by user (only if enabled)
+  useEffect(() => {
+    if (media.is_playing && isSpotifyEnabled) {
       setViewMode("spotify");
       setIsWheelPreviewing(false);
     }
-  }, [media.is_playing]);
+  }, [media.is_playing, isSpotifyEnabled]);
 
   useEffect(() => {
-    if (isPomodoroActive) {
+    if (isPomodoroActive && isPomodoroEnabled) {
       setViewMode("pomodoro");
       setIsWheelPreviewing(false);
     }
-  }, [isPomodoroActive]);
+  }, [isPomodoroActive, isPomodoroEnabled]);
 
-  const showIdleClock = !isWheelPreviewing && !media.is_playing && !isPomodoroActive;
+  const showIdleClock =
+    !isWheelPreviewing &&
+    !(isSpotifyEnabled && media.is_playing) &&
+    !(isPomodoroEnabled && isPomodoroActive);
 
   const triggerOverlay = useCallback((type: OverlayType, durationMs = 2500) => {
+    if (type === "volume" && !settings.volume_popup) return;
+    if (type === "brightness") return;
     if (overlayTimeoutRef.current) clearTimeout(overlayTimeoutRef.current);
     setActiveOverlay(type);
     overlayTimeoutRef.current = setTimeout(() => setActiveOverlay("none"), durationMs);
+  }, [settings.volume_popup]);
+
+  useEffect(() => {
+    if (!settings.volume_popup && activeOverlay === "volume") {
+      setActiveOverlay("none");
+    }
+  }, [settings.volume_popup, activeOverlay]);
+
+  const [isGameModeActive, setIsGameModeActive] = useState(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<boolean>("game-mode-animation-state", (event) => {
+      setIsGameModeActive(Boolean(event.payload));
+    }).then((u) => { unlisten = u; });
+    return () => { if (unlisten) unlisten(); };
   }, []);
+
+  useEffect(() => {
+    if (settings.anti_aliasing) {
+      document.documentElement.classList.add("antialiased-active");
+      document.documentElement.classList.remove("antialiased-disabled");
+    } else {
+      document.documentElement.classList.add("antialiased-disabled");
+      document.documentElement.classList.remove("antialiased-active");
+    }
+  }, [settings.anti_aliasing]);
 
   useSystemEvents({
     setVolumeLevel, setIsMuted, setBrightnessLevel, triggerOverlay, setIsSettingsOpen,
-    volumePopup: settings.volume_popup, brightnessPopup: settings.brightness_popup
+    volumePopup: settings.volume_popup, brightnessPopup: false
   });
 
   useIslandMask({
@@ -238,67 +289,145 @@ export const DynamicIsland: React.FC = () => {
 
   const lastSearchToggleRef = useRef<number>(0);
 
+  const openIsland = useCallback((targetMode: ViewMode) => {
+    if (wheelPreviewTimeoutRef.current) clearTimeout(wheelPreviewTimeoutRef.current);
+    setIsWheelPreviewing(false);
+    const validMode = enabledWidgets.includes(targetMode)
+      ? targetMode
+      : ((enabledWidgets[0] as ViewMode) || "spotify");
+    setViewMode(validMode);
+    setIsQueueOpen(false);
+    setIsOpen(true);
+  }, [enabledWidgets]);
+
+  const toggleIsland = useCallback(() => {
+    invoke("toggle_island").catch(console.error);
+  }, []);
+
   const toggleSpotifySearch = useCallback(() => {
     const now = Date.now();
     if (now - lastSearchToggleRef.current < 300) {
       return;
     }
     lastSearchToggleRef.current = now;
-    console.log("[FLOWKEY] Toggling spotify-search overlay!");
     getCurrentWindow().setFocus().catch(() => {});
     setActiveOverlay((prev) => (prev === "spotify-search" ? "none" : "spotify-search"));
   }, []);
 
-  // Global shortcut event listener for Spotify Search widget
+  // Global shortcut event listeners for Dynamic Island & Spotify Search
   useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
+    let unlistenSearch: UnlistenFn | undefined;
+    let unlistenToggle: UnlistenFn | undefined;
+    let unlistenWidget: UnlistenFn | undefined;
+
     listen("toggle-spotify-search", () => {
       toggleSpotifySearch();
-    }).then((fn: UnlistenFn) => {
-      unlisten = fn;
-    });
+    }).then((fn) => { unlistenSearch = fn; });
+
+    listen("toggle-island", () => {
+      toggleIsland();
+    }).then((fn) => { unlistenToggle = fn; });
+
+    listen<string>("open-widget", (event) => {
+      if (event.payload) {
+        openIsland(event.payload as ViewMode);
+      }
+    }).then((fn) => { unlistenWidget = fn; });
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenSearch) unlistenSearch();
+      if (unlistenToggle) unlistenToggle();
+      if (unlistenWidget) unlistenWidget();
     };
-  }, [toggleSpotifySearch]);
+  }, [toggleSpotifySearch, toggleIsland, openIsland]);
 
-  // In-window keydown listener as immediate responsive fallback
+  // In-window keydown listener as responsive fallback for all configured shortcuts
   useEffect(() => {
-    const handleWindowKeyDown = (e: KeyboardEvent) => {
-      const hotkey = settings.spotify_search_hotkey || "Alt+F";
+    const matchShortcut = (e: KeyboardEvent, hotkey?: string): boolean => {
+      if (!hotkey) return false;
       const parts = hotkey.toLowerCase().split("+").map((s) => s.trim());
       const needsAlt = parts.includes("alt");
       const needsCtrl = parts.includes("ctrl") || parts.includes("control");
       const needsShift = parts.includes("shift");
-      const keyPart = parts.find((p) => p !== "alt" && p !== "ctrl" && p !== "control" && p !== "shift") || "f";
+      const needsMeta = parts.includes("super") || parts.includes("meta") || parts.includes("win");
 
-      const matchesAlt = needsAlt === e.altKey;
-      const matchesCtrl = needsCtrl === e.ctrlKey;
-      const matchesShift = needsShift === e.shiftKey;
-      const matchesKey = e.key.toLowerCase() === keyPart || e.code.toLowerCase() === `key${keyPart}`;
+      const keyPart = parts.find((p) => !["alt", "ctrl", "control", "shift", "super", "meta", "win"].includes(p));
+      if (!keyPart) return false;
 
-      if (matchesAlt && matchesCtrl && matchesShift && matchesKey) {
+      if (needsAlt !== e.altKey) return false;
+      if (needsCtrl !== e.ctrlKey) return false;
+      if (needsShift !== e.shiftKey) return false;
+      if (needsMeta !== e.metaKey) return false;
+
+      let pressedKey = e.key.toLowerCase();
+      if (pressedKey === " ") pressedKey = "space";
+      if (keyPart === "space" && (e.key === " " || e.code === "Space")) return true;
+
+      return (
+        pressedKey === keyPart ||
+        e.code.toLowerCase() === `key${keyPart}` ||
+        e.code.toLowerCase() === `digit${keyPart}`
+      );
+    };
+
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
+      if (matchShortcut(e, settings.spotify_search_hotkey || "Alt+F")) {
         e.preventDefault();
         toggleSpotifySearch();
+        return;
+      }
+      if (matchShortcut(e, settings.toggle_island_hotkey || "Ctrl+Space")) {
+        e.preventDefault();
+        toggleIsland();
+        return;
+      }
+      if (matchShortcut(e, settings.open_spotify_hotkey)) {
+        e.preventDefault();
+        openIsland("spotify");
+        return;
+      }
+      if (matchShortcut(e, settings.open_pomodoro_hotkey)) {
+        e.preventDefault();
+        openIsland("pomodoro");
+        return;
+      }
+      if (matchShortcut(e, settings.open_tray_hotkey)) {
+        e.preventDefault();
+        openIsland("tray");
+        return;
+      }
+      if (matchShortcut(e, settings.open_clipboard_hotkey)) {
+        e.preventDefault();
+        openIsland("clipboard");
+        return;
+      }
+      if (matchShortcut(e, settings.open_translate_hotkey)) {
+        e.preventDefault();
+        openIsland("translate");
+        return;
       }
     };
-    window.addEventListener("keydown", handleWindowKeyDown);
 
+    window.addEventListener("keydown", handleWindowKeyDown);
     return () => {
       window.removeEventListener("keydown", handleWindowKeyDown);
     };
-  }, [settings.spotify_search_hotkey, toggleSpotifySearch]);
+  }, [settings, toggleSpotifySearch, toggleIsland, openIsland]);
 
   // Synchronize backend global shortcut registration with settings
   useEffect(() => {
-    const rawHotkey = settings.spotify_search_hotkey?.trim() || "Alt+F";
-    const cleanHotkey = rawHotkey.replace(/\s+/g, "");
-
-    invoke("register_spotify_search_hotkey", { hotkey: cleanHotkey }).catch((err) => {
-      console.warn("Backend register_spotify_search_hotkey error:", err);
+    invoke("register_all_shortcuts", { settings }).catch((err) => {
+      console.warn("Backend register_all_shortcuts error:", err);
     });
-  }, [settings.spotify_search_hotkey]);
+  }, [
+    settings.toggle_island_hotkey,
+    settings.open_spotify_hotkey,
+    settings.open_pomodoro_hotkey,
+    settings.open_tray_hotkey,
+    settings.open_clipboard_hotkey,
+    settings.open_translate_hotkey,
+    settings.spotify_search_hotkey,
+  ]);
 
   useEffect(() => {
     if ((!isOpen && activeOverlay !== "spotify-search") || isLockedOpen) return;
@@ -325,14 +454,6 @@ export const DynamicIsland: React.FC = () => {
     };
   }, [isLockedOpen, isOpen, activeOverlay]);
 
-  const openIsland = (targetMode: ViewMode) => {
-    if (wheelPreviewTimeoutRef.current) clearTimeout(wheelPreviewTimeoutRef.current);
-    setIsWheelPreviewing(false);
-    setViewMode(targetMode);
-    setIsQueueOpen(false);
-    setIsOpen(true);
-  };
-
   const handleWheel = (e: React.WheelEvent) => {
     const target = e.target as HTMLElement | null;
     // Disable tab switching only when mouse is inside a select component or open dropdown or scrollable lyrics
@@ -345,11 +466,13 @@ export const DynamicIsland: React.FC = () => {
     setTimeout(() => { scrollThrottleRef.current = false; }, 180);
 
     const availableModes: ViewMode[] = [];
-    if (media.is_available || media.is_playing) availableModes.push("spotify");
-    availableModes.push("pomodoro");
-    availableModes.push("tray");
-    availableModes.push("clipboard");
-    availableModes.push("translate");
+    if (isSpotifyEnabled) availableModes.push("spotify");
+    if (isPomodoroEnabled) availableModes.push("pomodoro");
+    if (isTrayEnabled) availableModes.push("tray");
+    if (isClipboardEnabled) availableModes.push("clipboard");
+    if (isTranslateEnabled) availableModes.push("translate");
+
+    if (availableModes.length === 0) return;
 
     const currentIndex = availableModes.indexOf(viewMode);
     const validIndex = currentIndex === -1 ? 0 : currentIndex;
@@ -368,9 +491,9 @@ export const DynamicIsland: React.FC = () => {
     wheelPreviewTimeoutRef.current = setTimeout(() => {
       setIsWheelPreviewing(false);
       if (!isExpandedRef.current) {
-        if (mediaRef.current.is_playing) {
+        if (mediaRef.current.is_playing && isSpotifyEnabled) {
           setViewMode("spotify");
-        } else if (isPomodoroActiveRef.current) {
+        } else if (isPomodoroActiveRef.current && isPomodoroEnabled) {
           setViewMode("pomodoro");
         }
       }
@@ -428,23 +551,25 @@ export const DynamicIsland: React.FC = () => {
     }
   };
 
-  const springTransition = settings.allow_animation
+  const effectiveAllowAnimation = isGameModeActive ? false : settings.allow_animation;
+
+  const springTransition = effectiveAllowAnimation
     ? { type: "spring", stiffness: 380, damping: 30, mass: 0.65 }
-    : { duration: 0.01 };
+    : { duration: 0.001 };
 
   return (
     <div
-      className="fixed inset-x-0 top-0 flex flex-col items-center pointer-events-none z-40 select-none"
+      className="fixed inset-x-0 top-0 flex flex-col items-center pointer-events-none z-40 select-none "
       onContextMenu={(e) => { e.preventDefault(); try { invoke("open_settings_window"); } catch {} }}
     >
       {activeOverlay === "spotify-search" ? (
-        <div className="flex items-center justify-center pointer-events-auto" ref={containerRef}>
+        <div className="flex items-start justify-center pointer-events-auto " ref={containerRef}>
           <motion.div
             layout
             transition={springTransition}
             style={{
               transformOrigin: "top center",
-              backgroundColor: "var(--card)",
+              backgroundColor: settings.allow_blur ? "rgba(10, 10, 14, 0.75)" : "var(--card)",
               boxShadow: isSearchExpanded
                 ? "0 25px 50px -10px rgba(0, 0, 0, 0.75)"
                 : "0 8px 20px -4px rgba(0, 0, 0, 0.5)",
@@ -453,13 +578,17 @@ export const DynamicIsland: React.FC = () => {
               borderBottomLeftRadius: isSearchExpanded ? 36 : isNotch ? 20 : 9999,
               borderBottomRightRadius: isSearchExpanded ? 36 : isNotch ? 20 : 9999,
             }}
-            className={`relative flex flex-col items-center border-0 origin-top ${
-              isSearchExpanded && settings.allow_blur ? "backdrop-blur-2xl" : ""
+            className={`relative flex flex-col items-center origin-top ${
+              settings.allow_blur
+                ? "backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.08]"
+                : "border-0"
             } ${isNotch ? "rounded-t-none border-t-0 shadow-notch" : "mt-1.5 shadow-island"}`}
           >
             {isNotch && <NotchCurves />}
             <div
               className={`overflow-hidden ${
+                settings.allow_blur ? "bg-black/60" : "bg-black"
+              } ${
                 isNotch
                   ? isSearchExpanded
                     ? "rounded-b-[36px] rounded-t-none"
@@ -481,7 +610,7 @@ export const DynamicIsland: React.FC = () => {
           </motion.div>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2">
           <motion.div
             ref={containerRef}
             layout
@@ -502,7 +631,7 @@ export const DynamicIsland: React.FC = () => {
             transition={springTransition}
             style={{
               transformOrigin: "top center",
-              backgroundColor: "var(--card)",
+              backgroundColor: settings.allow_blur ? "rgba(10, 10, 14, 0.75)" : "var(--card)",
               boxShadow: isExpanded
                 ? "0 25px 50px -10px rgba(0, 0, 0, 0.75)"
                 : "0 8px 20px -4px rgba(0, 0, 0, 0.5)",
@@ -511,17 +640,20 @@ export const DynamicIsland: React.FC = () => {
               borderBottomLeftRadius: isExpanded ? 36 : isNotch ? 20 : 9999,
               borderBottomRightRadius: isExpanded ? 36 : isNotch ? 20 : 9999,
             }}
-            className={`relative pointer-events-auto flex flex-col items-center border-0 origin-top ${
-              isExpanded && settings.allow_blur ? "backdrop-blur-2xl" : ""
+            className={`relative pointer-events-auto flex flex-col items-center origin-top ${
+              settings.allow_blur
+                ? "backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.08]"
+                : "border-0"
             } ${isNotch ? "rounded-t-none border-t-0 shadow-notch" : "mt-1.5 shadow-island"}`}
           >
             {isNotch && <NotchCurves />}
 
-            <div className={`w-full grid grid-cols-1 grid-rows-1 [&>*]:col-start-1 [&>*]:row-start-1 items-center justify-items-center overflow-hidden ${
+            <div className={`w-full grid grid-cols-1 grid-rows-1 *:col-start-1 *:row-start-1 ${
+                settings.allow_blur ? "bg-black/60" : "bg-black"
+            } items-center justify-items-center overflow-hidden ${
                 isNotch ? (isExpanded ? "rounded-b-[36px] rounded-t-none" : "rounded-b-[20px] rounded-t-none") : (isExpanded ? "rounded-[36px]" : "rounded-full")
             }`}>
               <AnimatePresence initial={false}>
-
                 {incomingTransfer ? (
                   <motion.div key="overlay-incoming" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[340px]">
                     <IncomingTransferOverlay transfer={incomingTransfer} onAccept={() => acceptTransfer(incomingTransfer.sessionId)} onReject={() => rejectTransfer(incomingTransfer.sessionId)} />
@@ -530,7 +662,7 @@ export const DynamicIsland: React.FC = () => {
                   <motion.div key="overlay-transfer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[360px]">
                     <TransferProgressOverlay transfer={currentTransfer} onCancel={cancelTransfer} />
                   </motion.div>
-                ) : activeOverlay === "volume" ? (
+                ) : activeOverlay === "volume" && settings.volume_popup ? (
                   <motion.div key="overlay-volume" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="w-[280px] h-8 flex items-center justify-center">
                     <VolumeOverlay volume={volumeLevel} isMuted={isMuted} />
                   </motion.div>
@@ -558,75 +690,75 @@ export const DynamicIsland: React.FC = () => {
                   <motion.div key="overlay-tray-conf" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
                     <TrayConfirmedToast type={confirmationToast?.type} />
                   </motion.div>
+                ) : null}
+              </AnimatePresence>
 
-              ) : !isExpanded ? (
-                <motion.div
-                  key="collapsed-bar"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1 }}
-                  style={{ transformOrigin: "top center" }}
-                  className={`flex items-center ${showIdleClock ? "justify-center" : "justify-between"} h-8 origin-top ${
-                    isDualActive
-                      ? "w-[210px] px-3 cursor-pointer"
-                      : showIdleClock
-                      ? "w-[128px] px-2 cursor-pointer"
-                      : (!isWheelPreviewing && media.is_playing) || viewMode === "spotify"
-                      ? "w-[210px] px-2.5 cursor-pointer"
-                      : (!isWheelPreviewing && isPomodoroActive) || viewMode === "pomodoro"
-                      ? "w-[190px] px-3 cursor-pointer"
-                      : viewMode === "tray" || viewMode === "clipboard" || viewMode === "translate"
-                      ? "w-[150px] px-3 cursor-pointer"
-                      : "w-[128px] px-2 cursor-pointer"
-                  }`}
-                  onClick={() => openIsland(viewMode)}
-                >
-                  <CollapsedContent
-                    isDualActive={isDualActive}
-                    media={media}
-                    isPomodoroActive={isPomodoroActive}
-                    pomodoroMode={pomodoro.mode}
-                    pomodoroTimeRemaining={pomodoro.timeRemaining}
-                    viewMode={viewMode}
-                    showIdleClock={showIdleClock}
-                    isWheelPreviewing={isWheelPreviewing}
-                  />
-                </motion.div>
-
-              ) : (
-                <motion.div
-                  key="expanded-hub"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1 }}
-                  style={{ transformOrigin: "top center" }}
-                  className={`flex flex-col origin-top ${
-                    viewMode === "spotify"
-                      ? isQueueOpen
-                        ? "w-[604px]"
-                        : "w-[334px]"
-                      : viewMode === "pomodoro"
-                      ? "w-[340px]"
-                      : viewMode === "clipboard"
-                      ? "p-2.5 gap-2 w-[590px]"
-                      : viewMode === "tray"
-                      ? "p-2.5 gap-2 w-[490px]"
-                      : viewMode === "translate"
-                      ? "p-2.5 gap-2 w-[600px]"
-                      : "p-3 gap-2.5 min-w-[440px] max-w-[500px]"
-                  }`}
-                >
-                  <ExpandedContent viewMode={viewMode} setViewMode={setViewMode} media={media} fetchMedia={fetchMedia} isQueueOpen={isQueueOpen} setIsQueueOpen={setIsQueueOpen} isLockedOpen={isLockedOpen} setIsLockedOpen={setIsLockedOpen} setIsSettingsOpen={setIsSettingsOpen} setIsOpen={setIsOpen} />
-                </motion.div>
+              {!incomingTransfer && !currentTransfer && activeOverlay === "none" && (
+                !isExpanded ? (
+                  <motion.div
+                    key="collapsed-bar"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.14 }}
+                    style={{ transformOrigin: "top center" }}
+                    className={`flex items-center ${showIdleClock ? "justify-center" : "justify-between"} h-8 origin-top ${
+                      isDualActive
+                        ? "w-52.5 px-3 cursor-pointer"
+                        : showIdleClock
+                        ? "w-32 px-2 cursor-pointer"
+                        : (!isWheelPreviewing && media.is_playing) || viewMode === "spotify"
+                        ? "w-52.5 px-2.5 cursor-pointer"
+                        : (!isWheelPreviewing && isPomodoroActive) || viewMode === "pomodoro"
+                        ? "w-47.5 px-3 cursor-pointer"
+                        : viewMode === "tray" || viewMode === "clipboard" || viewMode === "translate"
+                        ? "w-37.5 px-3 cursor-pointer"
+                        : "w-32 px-2 cursor-pointer"
+                    }`}
+                    onClick={() => openIsland(viewMode)}
+                  >
+                    <CollapsedContent
+                      isDualActive={isDualActive}
+                      media={media}
+                      isPomodoroActive={isPomodoroActive}
+                      pomodoroMode={pomodoro.mode}
+                      pomodoroTimeRemaining={pomodoro.timeRemaining}
+                      viewMode={viewMode}
+                      showIdleClock={showIdleClock}
+                      isWheelPreviewing={isWheelPreviewing}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="expanded-hub"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.14 }}
+                    style={{ transformOrigin: "top center" }}
+                    className={`flex flex-col origin-top ${
+                      viewMode === "spotify"
+                        ? isQueueOpen
+                          ? "w-[604px]"
+                          : "w-[334px]"
+                        : viewMode === "pomodoro"
+                        ? "w-[340px]"
+                        : viewMode === "clipboard"
+                        ? "px-2.5 pb-2.5 gap-2 w-[590px]"
+                        : viewMode === "tray"
+                        ? "px-2.5 pb-2.5 gap-2 w-[490px]"
+                        : viewMode === "translate"
+                        ? "px-2.5 pb-2.5 gap-2 w-[600px]"
+                        : "p-3 gap-2.5 min-w-[440px] max-w-[500px]"
+                    }`}
+                  >
+                    <ExpandedContent viewMode={viewMode} setViewMode={setViewMode} media={media} fetchMedia={fetchMedia} isQueueOpen={isQueueOpen} setIsQueueOpen={setIsQueueOpen} isLockedOpen={isLockedOpen} setIsLockedOpen={setIsLockedOpen} setIsSettingsOpen={setIsSettingsOpen} setIsOpen={setIsOpen} />
+                  </motion.div>
+                )
               )}
-            </AnimatePresence>
           </div>
         </motion.div>
 
         {!isExpanded && isDualActive && (
-          <div className="mt-1">
+          <div className="mt-1.5">
             <PomodoroBubbleWidget onClick={() => openIsland("pomodoro")} />
           </div>
         )}

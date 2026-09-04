@@ -112,26 +112,26 @@ export function useIslandMask(dependencies: {
       } else if (isExpanded) {
         if (viewMode === "clipboard") {
           targetW = 600;
-          targetH = 390;
+          targetH = 430;
         } else if (viewMode === "translate") {
           targetW = 600;
-          targetH = 270;
+          targetH = 310;
         } else if (viewMode === "tray") {
           targetW = 510;
-          targetH = 120;
+          targetH = 160;
         } else if (viewMode === "spotify") {
           targetW = isQueueOpen ? 610 : 340;
-          targetH = 195;
+          targetH = 235;
         } else if (viewMode === "pomodoro") {
           targetW = 380;
-          targetH = 230;
+          targetH = 270;
         } else {
           targetW = 460;
-          targetH = 340;
+          targetH = 380;
         }
       } else {
         if (isDualActive) {
-          targetW = 230;
+          targetW = 270;
           targetH = 48;
         } else if (!isWheelPreviewing) {
           if (isPlaying) {
@@ -187,45 +187,81 @@ export function useSystemEvents(actions: {
 }) {
   const { setVolumeLevel, setIsMuted, setBrightnessLevel, triggerOverlay, setIsSettingsOpen, volumePopup, brightnessPopup } = actions;
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen<{ volume_percent: number; is_muted: boolean }>("volume-changed", (event) => {
-      if (event.payload) {
-        setVolumeLevel(event.payload.volume_percent);
-        setIsMuted(event.payload.is_muted);
-        if (volumePopup) triggerOverlay("volume");
-      }
-    }).then((u) => { unlisten = u; });
-    return () => { if (unlisten) unlisten(); };
-  }, [volumePopup, setVolumeLevel, setIsMuted, triggerOverlay]);
+  const volumePopupRef = useRef(volumePopup);
+  const brightnessPopupRef = useRef(brightnessPopup);
+  const triggerOverlayRef = useRef(triggerOverlay);
+  const setVolumeLevelRef = useRef(setVolumeLevel);
+  const setIsMutedRef = useRef(setIsMuted);
+  const setBrightnessLevelRef = useRef(setBrightnessLevel);
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen("open-settings", () => setIsSettingsOpen(true)).then((u) => { unlisten = u; });
-    return () => { if (unlisten) unlisten(); };
+    volumePopupRef.current = volumePopup;
+    brightnessPopupRef.current = brightnessPopup;
+    triggerOverlayRef.current = triggerOverlay;
+    setVolumeLevelRef.current = setVolumeLevel;
+    setIsMutedRef.current = setIsMuted;
+    setBrightnessLevelRef.current = setBrightnessLevel;
+  }, [volumePopup, brightnessPopup, triggerOverlay, setVolumeLevel, setIsMuted, setBrightnessLevel]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    let unlistenFn: (() => void) | null = null;
+
+    listen<{ volume_percent: number; is_muted: boolean }>("volume-changed", (event) => {
+      if (event.payload) {
+        setVolumeLevelRef.current(event.payload.volume_percent);
+        setIsMutedRef.current(event.payload.is_muted);
+        if (volumePopupRef.current) {
+          triggerOverlayRef.current("volume");
+        }
+      }
+    }).then((u) => {
+      if (isCancelled) {
+        u();
+      } else {
+        unlistenFn = u;
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+      if (unlistenFn) unlistenFn();
+    };
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+    let unlistenFn: (() => void) | null = null;
+
+    listen("open-settings", () => setIsSettingsOpen(true)).then((u) => {
+      if (isCancelled) {
+        u();
+      } else {
+        unlistenFn = u;
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+      if (unlistenFn) unlistenFn();
+    };
   }, [setIsSettingsOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "AudioVolumeUp" || e.key === "VolumeUp") {
-        setVolumeLevel((v) => Math.min(100, v + 5));
-        setIsMuted(false);
-        if (volumePopup) triggerOverlay("volume");
+        setVolumeLevelRef.current((v) => Math.min(100, v + 5));
+        setIsMutedRef.current(false);
+        if (volumePopupRef.current) triggerOverlayRef.current("volume");
       } else if (e.key === "AudioVolumeDown" || e.key === "VolumeDown") {
-        setVolumeLevel((v) => Math.max(0, v - 5));
-        if (volumePopup) triggerOverlay("volume");
+        setVolumeLevelRef.current((v) => Math.max(0, v - 5));
+        if (volumePopupRef.current) triggerOverlayRef.current("volume");
       } else if (e.key === "AudioVolumeMute" || e.key === "VolumeMute") {
-        setIsMuted((m) => !m);
-        if (volumePopup) triggerOverlay("volume");
-      } else if (e.key === "F5" && e.altKey) {
-        setBrightnessLevel((b) => Math.max(0, b - 10));
-        if (brightnessPopup) triggerOverlay("brightness");
-      } else if (e.key === "F6" && e.altKey) {
-        setBrightnessLevel((b) => Math.min(100, b + 10));
-        if (brightnessPopup) triggerOverlay("brightness");
+        setIsMutedRef.current((m) => !m);
+        if (volumePopupRef.current) triggerOverlayRef.current("volume");
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [volumePopup, brightnessPopup, setVolumeLevel, setIsMuted, setBrightnessLevel, triggerOverlay]);
+  }, []);
 }

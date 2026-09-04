@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(target_os = "linux")]
 use gtk::prelude::*;
@@ -18,6 +18,39 @@ pub struct MonitorInfo {
 pub struct SystemAudioInfo {
     pub volume_percent: u32,
     pub is_muted: bool,
+}
+
+#[tauri::command]
+pub fn window_minimize(app: AppHandle, label: String) -> bool {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.minimize();
+        return true;
+    }
+    false
+}
+
+#[tauri::command]
+pub fn window_toggle_maximize(app: AppHandle, label: String) -> bool {
+    if let Some(window) = app.get_webview_window(&label) {
+        if let Ok(maximized) = window.is_maximized() {
+            if maximized {
+                let _ = window.unmaximize();
+            } else {
+                let _ = window.maximize();
+            }
+            return true;
+        }
+    }
+    false
+}
+
+#[tauri::command]
+pub fn window_close(app: AppHandle, label: String) -> bool {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.hide();
+        return true;
+    }
+    false
 }
 
 #[tauri::command]
@@ -41,11 +74,11 @@ pub fn open_settings_window(app: AppHandle) -> bool {
             "settings",
             tauri::WebviewUrl::App("index.html?window=settings".into()),
         )
-        .title("DynamicWin Settings")
-        .inner_size(680.0, 580.0)
-        .min_inner_size(540.0, 460.0)
+        .title("FlowKey Settings")
+        .inner_size(1020.0, 660.0)
+        .min_inner_size(820.0, 520.0)
         .center()
-        .decorations(true)
+        .decorations(false)
         .resizable(true)
         .build() {
             let _ = window.show();
@@ -65,12 +98,42 @@ pub fn open_settings_window(app: AppHandle) -> bool {
 }
 
 #[tauri::command]
+pub fn open_keybindings_window(app: AppHandle) -> bool {
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        let _ = app.emit("navigate-settings-tab", "keybindings");
+        return true;
+    } else {
+        if let Ok(window) = tauri::WebviewWindowBuilder::new(
+            &app,
+            "settings",
+            tauri::WebviewUrl::App("index.html?window=settings&tab=keybindings".into()),
+        )
+        .title("FlowKey Keybindings")
+        .inner_size(1020.0, 660.0)
+        .min_inner_size(820.0, 520.0)
+        .center()
+        .decorations(false)
+        .resizable(true)
+        .build() {
+            let _ = window.show();
+            let _ = window.set_focus();
+            return true;
+        }
+    }
+    false
+}
+
+#[tauri::command]
 pub fn position_window_at_top(app: AppHandle) -> bool {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.set_always_on_top(true);
         let _ = window.set_skip_taskbar(true);
         let _ = window.set_decorations(false);
         let _ = window.set_shadow(false);
+        let _ = window.set_resizable(false);
 
         let logical_w = 660.0;
         let logical_h = 520.0;
@@ -108,6 +171,7 @@ pub fn position_window_at_top(app: AppHandle) -> bool {
 #[tauri::command]
 pub fn resize_island_window(app: AppHandle, width: u32, height: u32) -> bool {
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_resizable(false);
         if let Ok(Some(monitor)) = window.current_monitor() {
             let scale = monitor.scale_factor();
             let win_w = (width as f64 * scale) as u32;
@@ -481,7 +545,7 @@ pub fn get_monitors(app: AppHandle) -> Vec<MonitorInfo> {
 }
 
 #[tauri::command]
-pub fn toggle_island_hidden(app: AppHandle) -> bool {
+pub fn toggle_island(app: AppHandle) -> bool {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(is_visible) = window.is_visible() {
             if is_visible {
@@ -489,10 +553,234 @@ pub fn toggle_island_hidden(app: AppHandle) -> bool {
                 return false;
             } else {
                 let _ = window.show();
-                let _ = window.set_focus();
+                let _ = window.unminimize();
+                crate::commands::settings::focus_main_window(&window);
                 return true;
             }
         }
     }
     true
 }
+
+#[tauri::command]
+pub fn toggle_island_hidden(app: AppHandle) -> bool {
+    toggle_island(app)
+}
+
+fn is_standard_desktop_app(proc_path: &str) -> bool {
+    let lower = proc_path.to_lowercase();
+    let name = lower.rsplit('\\').next().unwrap_or(&lower);
+
+    const EXCLUDED_EXES: &[&str] = &[
+        // Browsers
+        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe",
+        "operagx.exe", "arc.exe", "vivaldi.exe", "waterfox.exe", "tor.exe",
+        // Developer & Terminals
+        "code.exe", "devenv.exe", "idea64.exe", "clion64.exe", "pycharm64.exe",
+        "webstorm64.exe", "windowsterminal.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
+        // Windows Shell & System
+        "explorer.exe", "taskmgr.exe", "shellexperiencehost.exe", "searchhost.exe",
+        "startmenuexperiencehost.exe", "applicationframehost.exe", "systemsettings.exe",
+        "mmc.exe", "regedit.exe", "notepad.exe",
+        // Chat & Productivity
+        "discord.exe", "slack.exe", "spotify.exe", "notion.exe", "teams.exe",
+        "word.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
+        // Self
+        "flowkey.exe", "dynamic-win.exe",
+    ];
+
+    EXCLUDED_EXES.iter().any(|&ex| name == ex)
+}
+
+pub fn start_fullscreen_and_game_watcher(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut was_auto_hidden = false;
+        let mut last_game_mode = false;
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(350));
+
+            let settings = crate::commands::settings::load_settings();
+            if !settings.auto_hide_on_fullscreen && !settings.game_mode_disable_animations {
+                if was_auto_hidden {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.show();
+                    }
+                    was_auto_hidden = false;
+                }
+                if last_game_mode {
+                    last_game_mode = false;
+                    use tauri::Emitter;
+                    let _ = app.emit("game-mode-animation-state", false);
+                }
+                continue;
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                use windows_sys::Win32::UI::WindowsAndMessaging::{
+                    GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId, GetClassNameW,
+                    GetWindowLongW, GWL_STYLE, WS_CAPTION,
+                };
+                use windows_sys::Win32::Graphics::Gdi::{
+                    MonitorFromWindow, GetMonitorInfoW, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+                };
+                use windows_sys::Win32::System::Threading::{
+                    OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+                };
+                use windows_sys::Win32::Foundation::{RECT, CloseHandle};
+
+                let fg = unsafe { GetForegroundWindow() };
+                if fg.is_null() {
+                    continue;
+                }
+
+                let mut fg_pid = 0;
+                unsafe {
+                    GetWindowThreadProcessId(fg, &mut fg_pid);
+                }
+                let my_pid = std::process::id();
+                if fg_pid == my_pid {
+                    continue;
+                }
+
+                let mut class_buf = [0u16; 256];
+                let class_len = unsafe { GetClassNameW(fg, class_buf.as_mut_ptr(), 256) };
+                let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+                if class_name == "Progman" || class_name == "WorkerW" || class_name == "Shell_TrayWnd" {
+                    if was_auto_hidden {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                        }
+                        was_auto_hidden = false;
+                    }
+                    if last_game_mode {
+                        last_game_mode = false;
+                        use tauri::Emitter;
+                        let _ = app.emit("game-mode-animation-state", false);
+                    }
+                    continue;
+                }
+
+                let mut is_game = false;
+                let mut proc_path = String::new();
+
+                let hprocess = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, fg_pid) };
+                if !hprocess.is_null() {
+                    let mut path_buf = [0u16; 1024];
+                    let mut size = 1024u32;
+                    if unsafe { QueryFullProcessImageNameW(hprocess, 0, path_buf.as_mut_ptr(), &mut size) } != 0 {
+                        proc_path = String::from_utf16_lossy(&path_buf[..size as usize]).to_lowercase();
+                        if proc_path.contains("\\steamapps\\common\\")
+                            || proc_path.contains("\\epic games\\")
+                            || proc_path.contains("\\riot games\\")
+                            || proc_path.contains("\\ubisoft\\")
+                            || proc_path.contains("\\gog galaxy\\games\\")
+                            || proc_path.contains("\\gog games\\")
+                            || proc_path.contains("\\xboxgames\\")
+                            || proc_path.contains("\\battlenet\\")
+                            || proc_path.contains("\\ea games\\")
+                            || proc_path.contains("\\origin games\\")
+                            || proc_path.contains("\\roblox\\")
+                            || proc_path.ends_with("valorant.exe")
+                            || proc_path.ends_with("league of legends.exe")
+                            || proc_path.ends_with("cs2.exe")
+                            || proc_path.ends_with("dota2.exe")
+                            || proc_path.ends_with("gta5.exe")
+                            || proc_path.ends_with("minecraft.exe")
+                            || proc_path.ends_with("javaw.exe")
+                            || proc_path.ends_with("fortniteclient-win64-shipping.exe")
+                            || proc_path.ends_with("overwatch.exe")
+                            || proc_path.ends_with("rocketleague.exe")
+                        {
+                            is_game = true;
+                        }
+                    }
+                    unsafe { CloseHandle(hprocess); }
+                }
+
+                // If foreground is a standard desktop browser or productivity app, never hide or disable animations
+                if is_standard_desktop_app(&proc_path) {
+                    if was_auto_hidden {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                        }
+                        was_auto_hidden = false;
+                    }
+                    if last_game_mode {
+                        last_game_mode = false;
+                        use tauri::Emitter;
+                        let _ = app.emit("game-mode-animation-state", false);
+                    }
+                    continue;
+                }
+
+                let mut is_fullscreen = false;
+                let mut w_rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+                if unsafe { GetWindowRect(fg, &mut w_rect) } != 0 {
+                    let hmonitor = unsafe { MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST) };
+                    if !hmonitor.is_null() {
+                        let mut mi = MONITORINFO {
+                            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                            rcMonitor: RECT { left: 0, top: 0, right: 0, bottom: 0 },
+                            rcWork: RECT { left: 0, top: 0, right: 0, bottom: 0 },
+                            dwFlags: 0,
+                        };
+                        if unsafe { GetMonitorInfoW(hmonitor, &mut mi) } != 0 {
+                            let mon = mi.rcMonitor;
+                            if w_rect.left <= mon.left && w_rect.top <= mon.top &&
+                               w_rect.right >= mon.right && w_rect.bottom >= mon.bottom {
+                                let style = unsafe { GetWindowLongW(fg, GWL_STYLE) as u32 };
+                                let has_caption = (style & WS_CAPTION) == WS_CAPTION;
+                                if !has_caption || is_game {
+                                    is_fullscreen = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if settings.auto_hide_on_fullscreen {
+                    let should_hide = is_game || is_fullscreen;
+                    if should_hide {
+                        if !was_auto_hidden {
+                            if let Some(w) = app.get_webview_window("main") {
+                                if let Ok(vis) = w.is_visible() {
+                                    if vis {
+                                        let _ = w.hide();
+                                        was_auto_hidden = true;
+                                    }
+                                }
+                            }
+                        }
+                    } else if was_auto_hidden {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                        }
+                        was_auto_hidden = false;
+                    }
+                } else if was_auto_hidden {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.show();
+                    }
+                    was_auto_hidden = false;
+                }
+
+                if settings.game_mode_disable_animations {
+                    let should_disable = is_game || is_fullscreen;
+                    if should_disable != last_game_mode {
+                        last_game_mode = should_disable;
+                        use tauri::Emitter;
+                        let _ = app.emit("game-mode-animation-state", should_disable);
+                    }
+                } else if last_game_mode {
+                    last_game_mode = false;
+                    use tauri::Emitter;
+                    let _ = app.emit("game-mode-animation-state", false);
+                }
+            }
+        }
+    });
+}
+
+

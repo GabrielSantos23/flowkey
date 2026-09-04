@@ -29,6 +29,14 @@ export const SizeTransitionBlur: React.FC<SizeTransitionBlurProps> = ({
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
+
+        // Skip resize animation when collapsed or collapsing into the small island bar
+        if (width < 160 || height < 60) {
+          lastSizeRef.current = { w: width, h: height };
+          setIsResizing(false);
+          return;
+        }
+
         const diffW = Math.abs(width - lastSizeRef.current.w);
         const diffH = Math.abs(height - lastSizeRef.current.h);
 

@@ -46,6 +46,8 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_drag::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(HardwareState::new())
         .manage(SpotifyState::new())
         .setup(|app| {
@@ -53,7 +55,7 @@ pub fn run() {
             start_clipboard_listener(app.handle().clone());
 
             let settings = load_settings();
-            let _ = commands::settings::bind_spotify_hotkey(&app.handle(), &settings.spotify_search_hotkey);
+            let _ = commands::settings::bind_all_shortcuts(&app.handle(), &settings);
 
             // Position and configure overlay window
             if let Some(window) = app.get_webview_window("main") {
@@ -61,6 +63,7 @@ pub fn run() {
                 let _ = window.set_skip_taskbar(true);
                 let _ = window.set_decorations(false);
                 let _ = window.set_shadow(false);
+                let _ = window.set_resizable(false);
 
                 let logical_w = 660.0;
                 let logical_h = 520.0;
@@ -123,16 +126,7 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "toggle" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            if let Ok(visible) = window.is_visible() {
-                                if visible {
-                                    let _ = window.hide();
-                                } else {
-                                    let _ = window.show();
-                                    let _ = window.set_focus();
-                                }
-                            }
-                        }
+                        let _ = toggle_island(app.clone());
                     }
                     "settings" => {
                         let _ = open_settings_window(app.clone());
@@ -146,10 +140,17 @@ pub fn run() {
 
             start_audio_volume_watcher(app.handle().clone());
             start_mouse_pass_through_watcher(app.handle().clone());
+            start_fullscreen_and_game_watcher(app.handle().clone());
 
             Ok(())
         })
         .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "settings" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
             if let WindowEvent::DragDrop(drag_event) = event {
                 match drag_event {
                     tauri::DragDropEvent::Enter { paths, position } => {
@@ -190,6 +191,8 @@ pub fn run() {
             get_media_info,
             open_spotify,
             get_spotify_queue,
+            spotify_next,
+            spotify_previous,
             get_spotify_shuffle_state,
             set_spotify_shuffle,
             spotify_login,
@@ -198,6 +201,10 @@ pub fn run() {
             get_spotify_access_token,
             spotify_play,
             open_settings_window,
+            open_keybindings_window,
+            window_minimize,
+            window_toggle_maximize,
+            window_close,
             get_weather_data,
             get_tray_files,
             add_tray_files,
@@ -216,6 +223,7 @@ pub fn run() {
             load_settings,
             save_settings,
             register_spotify_search_hotkey,
+            register_all_shortcuts,
             load_custom_theme,
             save_custom_theme,
             get_system_volume,
@@ -223,6 +231,7 @@ pub fn run() {
             get_system_brightness,
             set_system_brightness,
             get_monitors,
+            toggle_island,
             toggle_island_hidden,
             position_window_at_top,
             resize_island_window,

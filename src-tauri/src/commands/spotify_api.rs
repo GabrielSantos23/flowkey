@@ -263,8 +263,18 @@ pub async fn get_spotify_queue(state: tauri::State<'_, SpotifyState>) -> Result<
             if let Ok(json) = resp.json::<serde_json::Value>().await {
                 if let Some(queue_arr) = json.get("queue").and_then(|v| v.as_array()) {
                     let mut list = Vec::new();
-                    for item in queue_arr.iter().take(15) {
+                    let mut seen_ids = std::collections::HashSet::new();
+                    for item in queue_arr.iter() {
                         let id = item.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let uri = item.get("uri").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let key = if !id.is_empty() { id.clone() } else { uri.clone() };
+                        if !key.is_empty() {
+                            if seen_ids.contains(&key) {
+                                continue;
+                            }
+                            seen_ids.insert(key);
+                        }
+
                         let title = item.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
                         let artist = item
                             .get("artists")
@@ -286,7 +296,6 @@ pub async fn get_spotify_queue(state: tauri::State<'_, SpotifyState>) -> Result<
                             .to_string();
 
                         let duration_ms = item.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-                        let uri = item.get("uri").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
                         list.push(SpotifyQueueTrack {
                             id,
@@ -296,6 +305,10 @@ pub async fn get_spotify_queue(state: tauri::State<'_, SpotifyState>) -> Result<
                             duration_ms,
                             uri,
                         });
+
+                        if list.len() >= 15 {
+                            break;
+                        }
                     }
                     return Ok(list);
                 }
@@ -396,16 +409,44 @@ pub async fn spotify_play(
         let client = reqwest::Client::new();
         let mut body = serde_json::Map::new();
 
-        if let Some(uris_list) = uris {
-            body.insert("uris".to_string(), serde_json::Value::from(uris_list));
+        let mut final_context_uri = context_uri.clone();
+        let mut offset_by_uri = None;
+
+        // If context_uri wasn't explicitly passed, check if player has an active playlist context
+        // so that playing a single track from the queue keeps the user in the playlist!
+        if final_context_uri.is_none() {
+            if let Some(ref list) = uris {
+                if list.len() == 1 {
+                    if let Ok(player_res) = client
+                        .get("https://api.spotify.com/v1/me/player")
+                        .bearer_auth(&token)
+                        .send()
+                        .await
+                    {
+                        if let Ok(json) = player_res.json::<serde_json::Value>().await {
+                            if let Some(ctx) = json.get("context").and_then(|c| c.get("uri")).and_then(|u| u.as_str()) {
+                                final_context_uri = Some(ctx.to_string());
+                                offset_by_uri = Some(list[0].clone());
+                            }
+                        }
+                    }
+                }
+            }
         }
-        if let Some(ctx) = context_uri {
-            body.insert("context_uri".to_string(), serde_json::Value::String(ctx));
+
+        if let Some(ref ctx) = final_context_uri {
+            body.insert("context_uri".to_string(), serde_json::Value::String(ctx.clone()));
             if let Some(pos) = offset_position {
                 let mut offset_map = serde_json::Map::new();
                 offset_map.insert("position".to_string(), serde_json::Value::Number(pos.into()));
                 body.insert("offset".to_string(), serde_json::Value::Object(offset_map));
+            } else if let Some(ref off_uri) = offset_by_uri {
+                let mut offset_map = serde_json::Map::new();
+                offset_map.insert("uri".to_string(), serde_json::Value::String(off_uri.clone()));
+                body.insert("offset".to_string(), serde_json::Value::Object(offset_map));
             }
+        } else if let Some(ref uris_list) = uris {
+            body.insert("uris".to_string(), serde_json::Value::from(uris_list.clone()));
         }
 
         let res = client
@@ -419,6 +460,26 @@ pub async fn spotify_play(
             if resp.status().is_success() {
                 return Ok(true);
             }
+
+            // If playing within context failed (e.g. track not in that playlist), retry with standalone uris
+            if offset_by_uri.is_some() {
+                if let Some(ref list) = uris {
+                    let mut fallback_body = serde_json::Map::new();
+                    fallback_body.insert("uris".to_string(), serde_json::Value::from(list.clone()));
+                    let retry = client
+                        .put("https://api.spotify.com/v1/me/player/play")
+                        .bearer_auth(&token)
+                        .json(&fallback_body)
+                        .send()
+                        .await;
+                    if let Ok(r) = retry {
+                        if r.status().is_success() {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+
             if resp.status().as_u16() == 404 {
                 if let Ok(dev_resp) = client
                     .get("https://api.spotify.com/v1/me/player/devices")
@@ -450,3 +511,44 @@ pub async fn spotify_play(
     }
     Ok(false)
 }
+
+
+#[tauri::command]
+pub async fn spotify_next(state: tauri::State<'_, SpotifyState>) -> Result<bool, String> {
+    if let Some(token) = get_valid_token(&state).await {
+        let client = reqwest::Client::new();
+        let res = client
+            .post("https://api.spotify.com/v1/me/player/next")
+            .bearer_auth(&token)
+            .header("Content-Length", "0")
+            .send()
+            .await;
+        if let Ok(resp) = res {
+            if resp.status().is_success() {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(crate::commands::media::media_next())
+}
+
+#[tauri::command]
+pub async fn spotify_previous(state: tauri::State<'_, SpotifyState>) -> Result<bool, String> {
+    if let Some(token) = get_valid_token(&state).await {
+        let client = reqwest::Client::new();
+        let res = client
+            .post("https://api.spotify.com/v1/me/player/previous")
+            .bearer_auth(&token)
+            .header("Content-Length", "0")
+            .send()
+            .await;
+        if let Ok(resp) = res {
+            if resp.status().is_success() {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(crate::commands::media::media_prev())
+}
+
+

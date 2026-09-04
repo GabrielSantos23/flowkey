@@ -166,8 +166,13 @@ export const PomodoroExpandedWidget: React.FC = () => {
     [isRunning, setMinutes]
   );
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     dragState.current = null;
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
   }, []);
 
   // --------------------------------------------------
@@ -221,7 +226,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
 
 
   return (
-    <SizeTransitionBlur triggerKey={mode} className="w-full">
+    <SizeTransitionBlur triggerKey={mode} layout={false} className="w-full">
       <div
         className="
           w-full
@@ -240,9 +245,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
           } as React.CSSProperties
         }
       >
-      {/* -------------------------------------------- */}
-      {/* Focus / Break */}
-      {/* -------------------------------------------- */}
+
 
       <div className="flex items-center justify-center">
         <div className="flex items-center gap-1 p-1 rounded-full bg-muted border border-border">
@@ -356,8 +359,9 @@ export const PomodoroExpandedWidget: React.FC = () => {
           {/* Center active tick */}
           <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none">
             <div
-              className="w-[2px] h-4 rounded-full bg-white"
+              className="w-[2px] h-4 rounded-full"
               style={{
+                backgroundColor: accent,
                 boxShadow: `0 0 8px ${accent}`,
               }}
             />
@@ -401,7 +405,7 @@ export const PomodoroExpandedWidget: React.FC = () => {
                         transition-all
                         ${
                           isActive
-                            ? "text-foreground font-bold scale-110"
+                            ? "text-white font-bold scale-110"
                             : "text-muted-foreground/40"
                         }
                       `}
@@ -410,26 +414,25 @@ export const PomodoroExpandedWidget: React.FC = () => {
                     </span>
                   )}
 
-                  {/* Tick */}
                   <div
                     className={`
                       rounded-full
                       transition-all
                       ${
                         isActive
-                          ? "w-[2px] h-3 bg-primary"
+                          ? "w-0.5 h-3"
                           : isMajor
                           ? "w-px h-3 bg-muted-foreground/30"
                           : "w-px h-1.5 bg-muted-foreground/15"
                       }
                     `}
+                    style={isActive ? { backgroundColor: accent } : undefined}
                   />
                 </div>
               );
             })}
           </div>
 
-          {/* Bottom pointer */}
           <div className="absolute bottom-0 inset-x-0 flex justify-center pointer-events-none">
             <div
               className="w-0 h-0"
@@ -445,13 +448,10 @@ export const PomodoroExpandedWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* -------------------------------------------- */}
-      {/* Bottom Controls */}
-      {/* -------------------------------------------- */}
+
 
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2">
-          {/* Start */}
           {!isRunning && !isPaused && (
             <button
               onClick={startTimer}
@@ -535,18 +535,14 @@ export const PomodoroExpandedWidget: React.FC = () => {
               active:scale-95
               ${
                 soundAlert
-                  ? "bg-primary/20 text-primary hover:bg-primary/30"
+                  ? "bg-card/70 text-primary hover:bg-card"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }
             `}
-            title={
-              soundAlert
-                ? "Chime Enabled"
-                : "Muted"
-            }
+
           >
             {soundAlert ? (
-              <Volume2 className="w-3.5 h-3.5 text-primary" />
+              <Volume2 className="w-3.5 h-3.5 text-foreground" />
             ) : (
               <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
             )}

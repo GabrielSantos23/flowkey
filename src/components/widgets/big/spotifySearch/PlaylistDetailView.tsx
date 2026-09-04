@@ -121,7 +121,6 @@ export const PlaylistDetailView: React.FC<PlaylistDetailViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 text-foreground select-none">
-      {/* Playlist Header Banner */}
       <div className="flex items-center gap-4 p-3.5 border-b border-border bg-muted/20">
         <button
           onClick={onBack}

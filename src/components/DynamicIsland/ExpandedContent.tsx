@@ -6,6 +6,7 @@ import { PomodoroExpandedWidget } from "../widgets/big/PomodoroExpandedWidget";
 import TrayExpandedWidget from "../widgets/big/TrayExpandedWidget";
 import { ClipboardHistory } from "../widgets/big/ClipboardHistory";
 import { TranslateExpandedWidget } from "../widgets/big/TranslateExpandedWidget";
+import { IslandHeader } from "./IslandHeader";
 
 interface ExpandedContentProps {
   viewMode: ViewMode;
@@ -25,8 +26,10 @@ export const ExpandedContent: React.FC<ExpandedContentProps> = ({
   setIsOpen
 }) => {
   return (
-    <div className="w-full">
-      <AnimatePresence mode="wait">
+    <div className="w-full flex flex-col items-center">
+      <IslandHeader currentView={viewMode} onViewChange={setViewMode} />
+      <div className="w-full">
+        <AnimatePresence mode="wait">
         {viewMode === "spotify" && (
           <motion.div
             key="spotify"
@@ -92,7 +95,8 @@ export const ExpandedContent: React.FC<ExpandedContentProps> = ({
             <TranslateExpandedWidget onMinimize={() => setIsOpen(false)} onViewChange={setViewMode} />
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

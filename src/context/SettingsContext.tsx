@@ -16,11 +16,22 @@ const DEFAULT_SETTINGS: AppSettings = {
   small_widgets_middle: [],
   small_widgets_right: ["used_devices", "battery"],
   big_widgets: ["media", "weather", "timer", "shortcuts"],
+  enabled_widgets: ["spotify", "pomodoro", "tray", "clipboard", "translate"],
   use_celsius: true,
   hide_location: false,
   volume_popup: true,
-  brightness_popup: true,
+  brightness_popup: false,
+  disable_wave_animation: false,
+  auto_hide_on_fullscreen: false,
+  game_mode_disable_animations: false,
   is_hidden: false,
+  toggle_island_hotkey: "Ctrl+Space",
+  open_spotify_hotkey: "",
+  open_pomodoro_hotkey: "",
+  open_tray_hotkey: "",
+  open_clipboard_hotkey: "",
+  open_translate_hotkey: "",
+  spotify_search_hotkey: "Alt+F",
 };
 
 interface SettingsContextType {
@@ -28,6 +39,7 @@ interface SettingsContextType {
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   toggleWidgetSlot: (slot: "left" | "middle" | "right", widgetId: string) => void;
   toggleBigWidget: (widgetId: string) => void;
+  toggleWidget: (widgetId: string) => void;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
   saveAllSettings: () => Promise<boolean>;
@@ -42,13 +54,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Load settings on initial mount
   useEffect(() => {
+    const normalizeSettings = (s: AppSettings): AppSettings => ({
+      ...DEFAULT_SETTINGS,
+      ...s,
+      enabled_widgets:
+        Array.isArray(s.enabled_widgets) && s.enabled_widgets.length > 0
+          ? s.enabled_widgets
+          : DEFAULT_SETTINGS.enabled_widgets,
+    });
+
     try {
       invoke<AppSettings>("load_settings")
         .then((loaded) => {
           if (loaded) {
-            setSettings(loaded);
-            if (typeof loaded.theme_index === "number") {
-              setThemeIndex(loaded.theme_index);
+            const normalized = normalizeSettings(loaded);
+            setSettings(normalized);
+            if (typeof normalized.theme_index === "number") {
+              setThemeIndex(normalized.theme_index);
             }
           }
         })
@@ -60,9 +82,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       listen<AppSettings>("settings-updated", (event) => {
         if (event.payload) {
-          setSettings(event.payload);
-          if (typeof event.payload.theme_index === "number") {
-            setThemeIndex(event.payload.theme_index);
+          const normalized = normalizeSettings(event.payload);
+          setSettings(normalized);
+          if (typeof normalized.theme_index === "number") {
+            setThemeIndex(normalized.theme_index);
           }
         }
       }).then((u) => {
@@ -136,6 +159,26 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  const toggleWidget = (widgetId: string) => {
+    setSettings((prev) => {
+      const current = prev.enabled_widgets ?? DEFAULT_SETTINGS.enabled_widgets ?? [];
+      const exists = current.includes(widgetId);
+      if (exists && current.length <= 1) {
+        // Prevent disabling the last active widget
+        return prev;
+      }
+      const nextList = exists
+        ? current.filter((id) => id !== widgetId)
+        : [...current, widgetId];
+
+      const next = { ...prev, enabled_widgets: nextList };
+      try {
+        invoke("save_settings", { settings: next }).catch(() => {});
+      } catch {}
+      return next;
+    });
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -143,6 +186,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateSettings,
         toggleWidgetSlot,
         toggleBigWidget,
+        toggleWidget,
         isSettingsOpen,
         setIsSettingsOpen,
         saveAllSettings,
